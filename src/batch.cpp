@@ -198,9 +198,9 @@ void batch_process(const std::string &input, const std::string &output,
 
     optimizer.shutdown();
 
-    MatrixXf O_extr, N_extr, Nf_extr;
+    MatrixXf O_extr, N_extr, Nf_extr, Q_extr;
     std::vector<std::vector<TaggedLink>> adj_extr;
-    extract_graph(mRes, extrinsic, rosy, posy, adj_extr, O_extr, N_extr,
+    extract_graph(mRes, extrinsic, rosy, posy, adj_extr, O_extr, N_extr, Q_extr,
                   crease_in, crease_out, deterministic);
 
     MatrixXu F_extr;

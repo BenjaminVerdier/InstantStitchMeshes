@@ -29,7 +29,7 @@ typedef std::pair<uint32_t, uint32_t> Edge;
 void
 extract_graph(const MultiResolutionHierarchy &mRes, bool extrinsic, int rosy, int posy,
               std::vector<std::vector<TaggedLink> > &adj_new,
-              MatrixXf &O_new, MatrixXf &N_new,
+              MatrixXf &O_new, MatrixXf &N_new, MatrixXf &Q_new,
               const std::set<uint32_t> &crease_in,
               std::set<uint32_t> &crease_out,
               bool deterministic, bool remove_spurious_vertices,
@@ -254,9 +254,11 @@ extract_graph(const MultiResolutionHierarchy &mRes, bool extrinsic, int rosy, in
         cout.flush();
 
         O_new.resize(3, nVertices);
-        N_new.resize(3, nVertices);
+		N_new.resize(3, nVertices);
+		Q_new.resize(3, nVertices);
         O_new.setZero();
-        N_new.setZero();
+		N_new.setZero();
+		Q_new.setZero();
 
         crease_out.clear();
         for (auto i : crease_in) {
@@ -288,7 +290,8 @@ extract_graph(const MultiResolutionHierarchy &mRes, bool extrinsic, int rosy, in
 
                     for (uint32_t k=0; k<3; ++k) {
                         atomicAdd(&O_new.coeffRef(k, j), O(k, i)*weight);
-                        atomicAdd(&N_new.coeffRef(k, j), N(k, i)*weight);
+						atomicAdd(&N_new.coeffRef(k, j), N(k, i)*weight);
+						atomicAdd(&Q_new.coeffRef(k, j), Q(k, i)*weight);
                     }
                     atomicAdd(&cluster_weight[j], weight);
                 }
@@ -305,7 +308,8 @@ extract_graph(const MultiResolutionHierarchy &mRes, bool extrinsic, int rosy, in
                     continue;
                 }
                 O_new.col(i) /= cluster_weight[i];
-                N_new.col(i).normalize();
+				N_new.col(i).normalize();
+				Q_new.col(i).normalize();
             }
 
             cout << "done. (took " << timeString(timer.reset()) << ")" << endl;
@@ -378,7 +382,8 @@ extract_graph(const MultiResolutionHierarchy &mRes, bool extrinsic, int rosy, in
                     if ((p_i-p_j).norm() < thresh || (p_i-p_k).norm() < thresh) {
                         uint32_t merge_id = (p_i-p_j).norm() < thresh ? j : k;
                         O_new.col(i) = (O_new.col(i) + O_new.col(merge_id)) * 0.5f;
-                        N_new.col(i) = (N_new.col(i) + N_new.col(merge_id)) * 0.5f;
+						N_new.col(i) = (N_new.col(i) + N_new.col(merge_id)) * 0.5f;
+						Q_new.col(i) = (Q_new.col(i) + Q_new.col(merge_id)) * 0.5f;
                         std::set<uint32_t> adj_updated;
                         for (auto const &n : adj_new[merge_id]) {
                             if (n.id == i)
@@ -402,13 +407,15 @@ extract_graph(const MultiResolutionHierarchy &mRes, bool extrinsic, int rosy, in
                         for (uint32_t l : adj_updated)
                             adj_new[i].push_back(l);
                     } else {
-                        Vector3f n_k = N_new.col(k), n_j = N_new.col(j);
+						Vector3f n_k = N_new.col(k), n_j = N_new.col(j);
+						Vector3f q_k = Q_new.col(k), q_j = Q_new.col(j);
                         //Vector3f dp = p_k - p_j, dn = n_k - n_j;
                         //Float t = dp.dot(p_i-p_j) / dp.dot(dp);
                         //O_new.col(i) = p_j + t*dp;
                         //N_new.col(i) = (n_j + t*dn).normalized();
                         O_new.col(i) = (p_j + p_k) * 0.5f;
-                        N_new.col(i) = (n_j + n_k).normalized();
+						N_new.col(i) = (n_j + n_k).normalized();
+						Q_new.col(i) = (n_j + n_k).normalized();
 
                         if (crease_out.find(j) != crease_out.end() &&
                             crease_out.find(k) != crease_out.end())
@@ -518,7 +525,7 @@ extract_graph(const MultiResolutionHierarchy &mRes, bool extrinsic, int rosy, in
 void extract_faces(std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
                    MatrixXf &N, MatrixXf &Nf, MatrixXu &F, int posy,
                    Float scale, std::set<uint32_t> &crease, bool fill_holes,
-                   bool pure_quad, BVH *bvh, int smooth_iterations) {
+                   bool pure_quad, BVH *bvh, int smooth_iterations, bool split_ngons) {
 
     uint32_t nF = 0, nV = O.cols(), nV_old = O.cols();
     F.resize(posy, posy == 4 ? O.cols() : O.cols()*2);
@@ -654,6 +661,7 @@ void extract_faces(std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
     cout.flush();
     uint32_t nFaces = 0, nHoles = 0;
     std::vector<std::pair<uint32_t, uint32_t>> result;
+	std::vector<std::vector<std::pair<uint32_t, uint32_t>>> result_tri_quads;
     for (uint32_t _deg = 3; _deg <= 8; _deg++) {
         uint32_t deg = _deg;
         if (posy == 4 && (deg == 3 || deg == 4))
@@ -663,11 +671,27 @@ void extract_faces(std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
             for (uint32_t j=0; j<adj[i].size(); ++j) {
                 if (!extract_face(i, j, _deg, result))
                     continue;
-                stats[result.size()]++;
-                std::vector<uint32_t> irregular = fill_face(result);
-                if (!irregular.empty())
-                    irregular_faces.push_back(std::move(irregular));
-                nFaces++;
+				//Do n>4-gon subdivision here?
+				if (split_ngons && deg > 4)
+				{
+					split_face2D(result, O, result_tri_quads);
+					for (auto res : result_tri_quads)
+					{
+						stats[res.size()]++;
+						std::vector<uint32_t> irregular = fill_face(res);
+						if (!irregular.empty())
+							irregular_faces.push_back(std::move(irregular));
+						nFaces++;
+					}
+				}
+				else
+				{
+					stats[result.size()]++;
+					std::vector<uint32_t> irregular = fill_face(result);
+					if (!irregular.empty())
+						irregular_faces.push_back(std::move(irregular));
+					nFaces++;
+				}
             }
         }
     }
@@ -1016,4 +1040,157 @@ void extract_faces(std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
     F_vec[0].swap(Nf);
     cout << "done. (took " << timeString(timer.value()) << ")" << endl;
 
+}
+
+Float compute_cost_edge2D_angle(int32_t v0, int32_t v1, std::vector<uint32_t> &vs, MatrixXf &V_) {
+	int32_t v0_pre = (v0 - 1 + vs.size()) % vs.size(), v0_aft = (v0 + 1) % vs.size();
+
+	int32_t v1_pre = (v1 - 1 + vs.size()) % vs.size(), v1_aft = (v1 + 1) % vs.size();
+
+	MatrixXf bes_vec(3, 4); Vector3f e_vec = (V_.col(vs[v0]) - V_.col(vs[v1])).normalized();
+	bes_vec.col(0) = (V_.col(vs[v0]) - V_.col(vs[v0_pre])).normalized();
+	bes_vec.col(1) = (V_.col(vs[v0]) - V_.col(vs[v0_aft])).normalized();
+
+	bes_vec.col(2) = (V_.col(vs[v1]) - V_.col(vs[v1_pre])).normalized();
+	bes_vec.col(3) = (V_.col(vs[v1]) - V_.col(vs[v1_aft])).normalized();
+
+	std::vector<double> angles(4);
+	for (uint32_t k = 0; k < 4; k++) {
+		if (k > 1) e_vec *= -1;
+		angles[k] = std::acos(bes_vec.col(k).dot(e_vec));
+		angles[k] = std::abs(angles[k] - 3.1415 / 2);
+	}
+	std::sort(angles.begin(), angles.end(), std::greater<double>());
+
+	return angles[0];
+}
+
+double safe_acos(double value) {
+	if (value <= -1.0) {
+		return 3.1415;
+	}
+	else if (value >= 1.0) {
+		return 0;
+	}
+	else {
+		return acos(value);
+	}
+}
+
+
+bool split_face2D(std::vector<std::pair<uint32_t, uint32_t>> &face, MatrixXf &V, std::vector<std::vector<std::pair<uint32_t, uint32_t>>> &result) {
+	/*
+	We just do the first part:
+	1) test all potential edges in the n-gon, store their 'energy' (aka if it aligns well with the rosy field or not) in a tuple
+	2) get the edge with the lowest energy
+	3) split the n-gon along that edge
+	4) repeat until all resulting n-gons are triangles or quads, store those in result
+	*/
+
+	//If we split a face and it's not a quad or a triangle, we store it here
+	std::vector<std::vector<std::pair<uint32_t, uint32_t>>> intermediate_faces;
+	intermediate_faces.push_back(std::move(face));
+
+	result.clear();
+
+	std::function<void(std::vector<uint32_t> &, Float &)> angle_2es =
+		[&](std::vector<uint32_t> & vs, Float & angle) -> void {
+		Vector3f vec0 = V.col(vs[0]) - V.col(vs[1]);
+		Vector3f vec1 = V.col(vs[2]) - V.col(vs[1]);
+		vec0.normalize(); vec1.normalize();
+		Float dot_ = vec0.dot(vec1);
+		angle = safe_acos(dot_);
+	};
+
+	while (!intermediate_faces.empty())
+	{
+
+		// We split the first face of the thingy!
+		// current face's edges, they should be in order
+		std::vector<std::pair<uint32_t, uint32_t>> cur_face = intermediate_faces[0];
+		// vertices of the face
+		std::vector<uint32_t> vertices;
+		for (auto &pair : cur_face)
+		{
+			vertices.push_back(pair.first);
+		}
+
+		// We get the vertex with the flatest angle
+		std::vector<std::tuple<Float, uint32_t>> vs_rank(vertices.size());
+		std::vector<Float> angles(vertices.size(), 0);
+		for (uint32_t k = 0; k < vertices.size(); k++) {
+			std::vector<uint32_t> v3;
+			v3.push_back(vertices[(k - 1 + vertices.size()) % vertices.size()]);
+			v3.push_back(vertices[k]);
+			v3.push_back(vertices[(k + 1) % vertices.size()]);
+			std::get<1>(vs_rank[k]) = k;
+			angle_2es(v3, std::get<0>(vs_rank[k]));
+		}
+		sort(vs_rank.begin(), vs_rank.end());
+		int j = std::get<1>(vs_rank[vs_rank.size() - 1]);
+
+		// We pick the other one through some magic
+		vs_rank.clear();
+
+		int32_t pre = (j - 1 + vertices.size()) % vertices.size(), post = (j + 1) % vertices.size();
+		for (int32_t k = 0; k < vertices.size(); k++) {
+			if (pre == k || post == k || j == k) continue; //share an original edge
+			Float cost = compute_cost_edge2D_angle(j, k, vertices, V);
+			vs_rank.push_back(std::make_pair(cost, k));
+		}
+
+		//We get the new edge \o/
+		if (!vs_rank.size()) continue;
+		sort(vs_rank.begin(), vs_rank.end());
+		int k = std::get<1>(vs_rank[0]);
+		if (j > k) std::swap(j, k);
+		int start = vertices[j];
+		int end = vertices[k];
+
+		//Now we create our two new polygons! Youhou!
+		std::vector<std::pair<uint32_t, uint32_t>> new_face1, new_face2;
+		bool first_face = true;
+		for (auto &edge : cur_face)
+		{
+			if (edge.first == start)
+			{
+				first_face = false;
+				new_face1.emplace_back(start, -1);
+			}
+			if (edge.first == end)
+			{
+				first_face = true;
+				new_face2.emplace_back(end, -1);
+			}
+			if (first_face)
+			{
+				new_face1.push_back(edge);
+			}
+			else
+			{
+				new_face2.push_back(edge);
+			}
+		}
+		// We check if our new polygons are triangles or quads
+		if (new_face1.size() > 4)
+		{
+			intermediate_faces.push_back(new_face1);
+		}
+		else
+		{
+			result.push_back(new_face1);
+		}
+		if (new_face2.size() > 4)
+		{
+			intermediate_faces.push_back(new_face2);
+		}
+		else
+		{
+			result.push_back(new_face2);
+		}
+
+		// Remove the split face
+		intermediate_faces.erase(intermediate_faces.begin());
+	}
+	return true;
 }

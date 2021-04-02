@@ -161,6 +161,7 @@ protected:
     MatrixXu mF_extracted;
     MatrixXf mV_extracted;
     MatrixXf mN_extracted, mNf_extracted;
+	MatrixXf mQ_extracted;
 
     /* Camera / navigation / misc */
     CameraParameters mCamera;
@@ -210,7 +211,7 @@ protected:
     CheckBox *mLayers[LayerCount];
     ComboBox *mVisualizeBox, *mSymmetryBox;
     CheckBox *mExtrinsicBox, *mAlignToBoundariesBox;
-    CheckBox *mCreaseBox, *mPureQuadBox;
+    CheckBox *mCreaseBox, *mPureQuadBox, *mSplitNgonsBox;
     ProgressButton *mSolveOrientationBtn, *mSolvePositionBtn;
     Button *mHierarchyMinusButton, *mHierarchyPlusButton;
     Button *mSaveBtn, *mSwitchBtn;

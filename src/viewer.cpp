@@ -318,8 +318,10 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
             mOptimizer.setRoSy(4);
             mOptimizer.setPoSy(4);
         }
-        mPureQuadBox->setEnabled(mOptimizer.posy() == 4);
-        mPureQuadBox->setChecked(false);
+		mPureQuadBox->setEnabled(mOptimizer.posy() == 4);
+		mPureQuadBox->setChecked(false);
+		mSplitNgonsBox->setEnabled(mOptimizer.posy() == 4);
+		mSplitNgonsBox->setChecked(false);
         mSolvePositionBtn->setEnabled(false);
         mExportBtn->setEnabled(false);
         mOrientationScareBrush->setEnabled(false);
@@ -552,6 +554,10 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
     mPureQuadBox->setTooltip("Apply one step of subdivision to extract a pure quad mesh");
     mPureQuadBox->setId("pureQuadBox");
 
+	mSplitNgonsBox = new CheckBox(exportPopup, "Split Ngons");
+	mSplitNgonsBox->setTooltip("Splits 5/6/7/8gons to quads and triangles");
+	mSplitNgonsBox->setId("mSplitNgonsBox");
+
     new Label(exportPopup, "Smoothing iterations", "sans-bold");
     Widget *smoothPanel = new Widget(exportPopup);
     smoothPanel->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 20));
@@ -708,9 +714,11 @@ void Viewer::setSymmetry(int rosy, int posy) {
     else if (rosy == 4 && posy == 4)
         mSymmetryBox->setSelectedIndex(2);
     else
-        throw std::runtime_error("Selected RoSy/PoSy combination is not supported by the user interface");
-    mPureQuadBox->setEnabled(posy == 4);
-    mPureQuadBox->setChecked(false);
+		throw std::runtime_error("Selected RoSy/PoSy combination is not supported by the user interface");
+	mPureQuadBox->setEnabled(posy == 4);
+	mPureQuadBox->setChecked(false);
+	mSplitNgonsBox->setEnabled(posy == 4);
+	mSplitNgonsBox->setChecked(false);
     mPositionAttractor->setEnabled(false);
     mOrientationAttractor->setEnabled(false);
     mOptimizer.setRoSy(rosy);
@@ -1474,7 +1482,7 @@ void Viewer::extractMesh() {
     std::vector<std::vector<TaggedLink>> adj_extracted;
     std::set<uint32_t> creaseOut;
     extract_graph(mRes, mExtrinsicBox->checked(), rosy, posy, adj_extracted,
-                  mV_extracted, mN_extracted, mCreaseSet, creaseOut,
+                  mV_extracted, mN_extracted, mQ_extracted, mCreaseSet, creaseOut,
                   mDeterministic);
 
     Vector3f red = Vector3f::UnitX();
@@ -1482,7 +1490,7 @@ void Viewer::extractMesh() {
     int smooth_iterations = (int) (mSmoothSlider->value() * 10);
     extract_faces(adj_extracted, mV_extracted, mN_extracted, mNf_extracted,
                   mF_extracted, posy, mRes.scale(), creaseOut, true,
-                  mPureQuadBox->checked(), mBVH, smooth_iterations);
+                  mPureQuadBox->checked(), mBVH, smooth_iterations, mSplitNgonsBox->checked());
 
     cout << "Extraction is done. (total time: " << timeString(timer.value()) << ")" << endl;
 
