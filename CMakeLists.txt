@@ -112,6 +112,12 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/ext/half
   # Resource file
   ${CMAKE_CURRENT_BINARY_DIR}
+  # Gurobi
+  "C:/gurobi752/win32/include"
+)
+
+link_directories(
+	"C:/gurobi752/win32/lib"
 )
 
 # Run bin2c on resource files
@@ -170,6 +176,18 @@ add_executable(InstantMeshes MACOSX_BUNDLE
   src/cleanup.h src/cleanup.cpp
   src/dedge.h src/dedge.cpp
   ext/rply/rply.c
+  src/core/cyPoint.h
+  src/core/dual.cpp src/core/dual.h
+  src/core/HE_Face.cpp src/core/HE_Face.h
+  src/core/HE_Halfedge.cpp src/core/HE_Halfedge.h
+  src/core/HE_Polyhedron.cpp src/core/HE_Polyhedron.h
+  src/core/HE_Vertex.cpp src/core/HE_Vertex.h
+  src/core/mesh_io.cpp
+  src/core/polyhedron_iterators.h
+  src/core/stitchmeshing.cpp
+  src/core/HE_Vertex.cpp src/core/HE_Vertex.h
+  src/core/util.cpp src/core/util.h
+  src/meshio.cpp src/meshio.h
   ${EXTRA_SOURCE})
 
 add_definitions(${NANOGUI_EXTRA_DEFS})
