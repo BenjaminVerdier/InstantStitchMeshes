@@ -214,7 +214,7 @@ protected:
     CheckBox *mCreaseBox, *mPureQuadBox, *mSplitNgonsBox;
     ProgressButton *mSolveOrientationBtn, *mSolvePositionBtn;
     Button *mHierarchyMinusButton, *mHierarchyPlusButton;
-    Button *mSaveBtn, *mSwitchBtn;
+    Button *mSaveBtn, *mSwitchBtn, *mStitchMeshingBtn;
     PopupButton *mExportBtn;
     ToolButton *mOrientationComb, *mOrientationAttractor, *mOrientationScareBrush;
     ToolButton *mEdgeBrush, *mPositionAttractor, *mPositionScareBrush;

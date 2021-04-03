@@ -623,6 +623,28 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
         extractConsensusGraph();
     });
 
+
+    mStitchMeshingBtn = new Button(window, "Stitch Meshing", ENTYPO_ICON_COG);
+    mStitchMeshingBtn->setBackgroundColor(Color(0, 255, 0, 25));
+    mStitchMeshingBtn->setId("stitchMeshingBtn");
+    mStitchMeshingBtn->setCallback([&]() {
+        try {
+            //Labeling
+            mRes.convert2Poly();
+            mRes.labelMesh(true);
+            mRes.convertLabelMesh2Rend();
+            //Aligning
+            mRes.alignMesh();
+            mRes.convertAlignMesh2Rend();
+            //Stitch Meshing
+            mRes.stitchMeshing();
+            mRes.convertStitchMesh2Rend();
+        }
+        catch (const std::exception& e) {
+            new MessageDialog(this, MessageDialog::Type::Warning, "Error", e.what());
+        }
+        });
+
 #ifdef VISUALIZE_ERROR
     mGraph = new Graph(window, "Energy");
 #endif
@@ -1488,10 +1510,9 @@ void Viewer::extractMesh() {
     Vector3f red = Vector3f::UnitX();
 
     int smooth_iterations = (int) (mSmoothSlider->value() * 10);
-    extract_faces(adj_extracted, mV_extracted, mN_extracted, mNf_extracted,
+    extract_faces(mRes,adj_extracted, mV_extracted, mN_extracted, mNf_extracted,
                   mF_extracted, posy, mRes.scale(), creaseOut, true,
                   mPureQuadBox->checked(), mBVH, smooth_iterations, mSplitNgonsBox->checked());
-
     cout << "Extraction is done. (total time: " << timeString(timer.value()) << ")" << endl;
 
     int fmult = posy == 3 ? 1 : 2;

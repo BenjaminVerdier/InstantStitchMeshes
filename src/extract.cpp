@@ -522,10 +522,14 @@ extract_graph(const MultiResolutionHierarchy &mRes, bool extrinsic, int rosy, in
     cout << "done. (took " << timeString(timer.reset()) << ")" << endl;
 }
 
-void extract_faces(std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
+void extract_faces(MultiResolutionHierarchy& mRes, std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
                    MatrixXf &N, MatrixXf &Nf, MatrixXu &F, int posy,
                    Float scale, std::set<uint32_t> &crease, bool fill_holes,
                    bool pure_quad, BVH *bvh, int smooth_iterations, bool split_ngons) {
+
+    //getting things ready for stitch meshing code
+    mRes.mV_tag = O;
+    mRes.F_tag.clear();
 
     uint32_t nF = 0, nV = O.cols(), nV_old = O.cols();
     F.resize(posy, posy == 4 ? O.cols() : O.cols()*2);
@@ -678,6 +682,9 @@ void extract_faces(std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
 					for (auto res : result_tri_quads)
 					{
 						stats[res.size()]++;
+                        std::vector<uint32_t> face;
+                        for (auto v : res) face.push_back(v.first);
+                        mRes.F_tag.push_back(std::move(face));
 						std::vector<uint32_t> irregular = fill_face(res);
 						if (!irregular.empty())
 							irregular_faces.push_back(std::move(irregular));
@@ -687,6 +694,9 @@ void extract_faces(std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
 				else
 				{
 					stats[result.size()]++;
+                    std::vector<uint32_t> face;
+                    for (auto v : result) face.push_back(v.first);
+                    mRes.F_tag.push_back(std::move(face));
 					std::vector<uint32_t> irregular = fill_face(result);
 					if (!irregular.empty())
 						irregular_faces.push_back(std::move(irregular));
@@ -1038,6 +1048,8 @@ void extract_faces(std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
     V_vec[0].swap(O);
     V_vec[1].swap(N);
     F_vec[0].swap(Nf);
+
+
     cout << "done. (took " << timeString(timer.value()) << ")" << endl;
 
 }

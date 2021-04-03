@@ -147,6 +147,12 @@ public:
     int mIterationsO;
     uint32_t mTotalSize;
 
+
+    //////////////////////////////////////////////////////////////////////////
+    // quad mesh stuff for stitch meshing
+    MatrixXf mV_tag;
+    std::vector<std::vector<uint32_t>> F_tag;
+
     //////////////////////////////////////////////////////////////////////////
     // labeled mesh
     MatrixXf mV_LbMesh_rend;

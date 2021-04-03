@@ -49,9 +49,9 @@ enum filetype_e
 	FT_NONE ///< Not identified format. Indicates an error situation.
 };
 
-#ifndef INVALID
-# define INVALID -1
-#endif
+//#ifndef INVALID
+//# define INVALID -1
+//#endif
 #define ISVALID(v) (v>=0)
 
 /** Class that holds the representation of a manifold mesh in a half-edge data structure.
