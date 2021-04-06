@@ -238,3 +238,5 @@ if (WIN32)
 endif()
 
 ADD_CUSTOM_TARGET( datasets ALL  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/datasets ${CMAKE_CURRENT_BINARY_DIR}/datasets )
+
+add_dependencies(InstantMeshes datasets)
