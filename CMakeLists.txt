@@ -128,7 +128,9 @@ set(PNG_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/resources/scare.png
   ${CMAKE_CURRENT_SOURCE_DIR}/resources/sing_dir.png
   ${CMAKE_CURRENT_SOURCE_DIR}/resources/sing_pos.png
-  ${CMAKE_CURRENT_SOURCE_DIR}/resources/instantmeshes.png)
+  ${CMAKE_CURRENT_SOURCE_DIR}/resources/instantmeshes.png
+  ${CMAKE_CURRENT_SOURCE_DIR}/resources/arrow.png
+  ${CMAKE_CURRENT_SOURCE_DIR}/resources/uvTexture.png)
 file(GLOB FRAG_FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/*.frag")
 file(GLOB VERT_FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/*.vert")
 file(GLOB GEO_FILES  "${CMAKE_CURRENT_SOURCE_DIR}/resources/*.geo")
@@ -216,3 +218,23 @@ endif()
 if (UNIX AND NOT ${U_CMAKE_BUILD_TYPE} MATCHES DEBUG)
   add_custom_command(TARGET InstantMeshes POST_BUILD COMMAND strip $<TARGET_FILE:InstantMeshes>)
 endif()
+
+if (WIN32)
+	# Quench some warnings on MSVC
+	if (MSVC)
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/arrow.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/uvTexture.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/arrow.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Release)
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/uvTexture.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Release)
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/arrow.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Debug)
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/uvTexture.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Debug)
+	endif()
+endif()
+
+ADD_CUSTOM_TARGET( datasets ALL  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/datasets ${CMAKE_CURRENT_BINARY_DIR}/datasets )
