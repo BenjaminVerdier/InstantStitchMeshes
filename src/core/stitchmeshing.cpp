@@ -159,7 +159,7 @@ void MultiResolutionHierarchy::labelMesh(bool pFlip)
 	////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ break INC/DEC again ------------\n";
 	mDual->breakConnectIncOrDec();
-	std::cout << "------------------------------------------ labeling\n";
+	std::cout << "------------------------------------------ labeling done\n";
 }
 
 void MultiResolutionHierarchy::alignMesh()
@@ -628,16 +628,16 @@ void MultiResolutionHierarchy::convertAlignMesh2Rend()
 		mE_AlMesh_rend(0, ei * 2 + 0) = he->src()->position().x;
 		mE_AlMesh_rend(1, ei * 2 + 0) = he->src()->position().y;
 		mE_AlMesh_rend(2, ei * 2 + 0) = he->src()->position().z;
-		mE_AlMesh_rend(3, ei * 2 + 0) = 0;
-		mE_AlMesh_rend(4, ei * 2 + 0) = 0;
-		mE_AlMesh_rend(5, ei * 2 + 0) = 0;
+		mE_AlMesh_rend(3, ei * 2 + 0) = 1e-3;
+		mE_AlMesh_rend(4, ei * 2 + 0) = 1e-3;
+		mE_AlMesh_rend(5, ei * 2 + 0) = 1e-3;
 		   
 		mE_AlMesh_rend(0, ei * 2 + 1) = he->dst()->position().x;
 		mE_AlMesh_rend(1, ei * 2 + 1) = he->dst()->position().y;
 		mE_AlMesh_rend(2, ei * 2 + 1) = he->dst()->position().z;
-		mE_AlMesh_rend(3, ei * 2 + 1) = 0;
-		mE_AlMesh_rend(4, ei * 2 + 1) = 0;
-		mE_AlMesh_rend(5, ei * 2 + 1) = 0;
+		mE_AlMesh_rend(3, ei * 2 + 1) = 1e-3;
+		mE_AlMesh_rend(4, ei * 2 + 1) = 1e-3;
+		mE_AlMesh_rend(5, ei * 2 + 1) = 1e-3;
 	}
 }
 
@@ -949,16 +949,16 @@ void MultiResolutionHierarchy::convertStitchMesh2Rend()
 		mE_StMesh_rend(0, ei * 2 + 0) = he->src()->position().x;
 		mE_StMesh_rend(1, ei * 2 + 0) = he->src()->position().y;
 		mE_StMesh_rend(2, ei * 2 + 0) = he->src()->position().z;
-		mE_StMesh_rend(3, ei * 2 + 0) = 0;
-		mE_StMesh_rend(4, ei * 2 + 0) = 0;
-		mE_StMesh_rend(5, ei * 2 + 0) = 0;
+		mE_StMesh_rend(3, ei * 2 + 0) = 1e-3;
+		mE_StMesh_rend(4, ei * 2 + 0) = 1e-3;
+		mE_StMesh_rend(5, ei * 2 + 0) = 1e-3;
 
 		mE_StMesh_rend(0, ei * 2 + 1) = he->dst()->position().x;
 		mE_StMesh_rend(1, ei * 2 + 1) = he->dst()->position().y;
 		mE_StMesh_rend(2, ei * 2 + 1) = he->dst()->position().z;
-		mE_StMesh_rend(3, ei * 2 + 1) = 0;
-		mE_StMesh_rend(4, ei * 2 + 1) = 0;
-		mE_StMesh_rend(5, ei * 2 + 1) = 0;
+		mE_StMesh_rend(3, ei * 2 + 1) = 1e-3;
+		mE_StMesh_rend(4, ei * 2 + 1) = 1e-3;
+		mE_StMesh_rend(5, ei * 2 + 1) = 1e-3;
 	}
 
 	std::cout << "Done\n";

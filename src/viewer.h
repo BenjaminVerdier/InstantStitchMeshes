@@ -287,7 +287,9 @@ protected:
         OutputMeshWireframe,
         LabeledMesh,
         AlignedMesh,
+        AlignedMeshEdges,
         StitchMesh,
+        StitchMeshEdges,
         LayerCount
     };
 
@@ -297,8 +299,9 @@ protected:
     CheckBox *mCreaseBox, *mPureQuadBox, *mSplitNgonsBox;
     ProgressButton *mSolveOrientationBtn, *mSolvePositionBtn;
     Button *mHierarchyMinusButton, *mHierarchyPlusButton;
-    Button *mSaveBtn, *mSwitchBtn, *mStitchMeshingBtn;
-    PopupButton *mExportBtn;
+    Button *mSaveBtn, *mSwitchBtn;
+    Button *mStitchMeshingLabelBtn, *mStitchMeshingAlignBtn, *mStitchMeshingStitchMeshBtn;
+    PopupButton *mExportBtn, *mStitchBtn;
     ToolButton *mOrientationComb, *mOrientationAttractor, *mOrientationScareBrush;
     ToolButton *mEdgeBrush, *mPositionAttractor, *mPositionScareBrush;
     TextBox *mHierarchyLevelBox, *mScaleBox, *mCreaseAngleBox;
@@ -320,4 +323,5 @@ protected:
     double mOperationStart;
     uint32_t mOutputMeshFaces, mOutputMeshLines;
     uint32_t mFlowLineFaces, mStrokeFaces;
+    uint32_t mLabeledMeshFaces, mAlignedMeshFaces, mAlignedMeshLines, mStitchMeshFaces, mStitchMeshLines;
 };

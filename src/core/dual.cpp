@@ -1532,7 +1532,7 @@ void DualGraph::gurobiSolver(std::string pFilename)
 					else 
 						uvfile << int(0) << " ";
 
-					if (i == (_idxOffsets[fidx] - 1)) 
+					if (fidx < _idxOffsets.size() && i == (_idxOffsets[fidx] - 1))
 						fidx++;
 				}
 
