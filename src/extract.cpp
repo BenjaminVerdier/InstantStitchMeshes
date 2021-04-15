@@ -894,6 +894,14 @@ void extract_faces(MultiResolutionHierarchy& mRes, std::vector<std::vector<Tagge
             for (uint32_t i=0; i<f.size(); ++i)
                 F.col(f[i]) << ecs[2*i+1], ecs[(2*i+2)%ecs.size()], ecs[(2*i+3)%ecs.size()], idx_fc;
         }
+        mRes.mV_tag = O;
+        mRes.mV_tag.conservativeResize(3, nV);
+        mRes.F_tag.clear();
+        for (uint32_t i = 0; i < nF; ++i) {
+            Vector4u f = F.col(i);
+            std::vector<uint32_t> face{f[0],f[1],f[2],f[3]};
+            mRes.F_tag.push_back(std::move(face));
+        }
         cout << "done. (took " << timeString(timer.reset()) << ")" << endl;
     }
 
