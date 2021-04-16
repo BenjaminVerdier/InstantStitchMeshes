@@ -1480,6 +1480,32 @@ void DualGraph::gurobiSolver(std::string pFilename)
 				std::cout << "ERROR: shouldn't be here!\n";
 			}
 		}
+
+		std::cout << "\nUser defined labels:\n";
+		for (auto const& l : user_defined_labels)
+		{
+			std::cout << l.first << " : " << l.second << "\n";
+			HE_HalfEdge* he0 = _poly->halfedge(l.first);
+			HE_HalfEdge* he1 = he0->twin();
+			
+			HE_Face* f0 = he0->face();
+			HE_Face* f1 = he1->face();
+			auto& faces = _poly->_faces;
+			auto f0_it = std::find(faces.begin(), faces.end(), f0);
+			int f0_idx = f0_it - faces.begin();
+			auto f1_it = std::find(faces.begin(), faces.end(), f1);
+			int f1_idx = f1_it - faces.begin();
+			int idx0 = _poly->face(f0_idx)->HalfEdgeIdx(he0);
+			int idx1 = _poly->face(f1_idx)->HalfEdgeIdx(he1);
+
+			if (_poly->face(f0_idx)->hole() || _poly->face(f1_idx)->hole()) continue;
+
+			c = 'e' + std::to_string(l.first) + '0';
+			model.addConstr(grbVars[_idxOffsets[f0_idx] + idx0], GRB_EQUAL, l.second, c);
+			c = 'e' + std::to_string(l.first) + '1';
+			model.addConstr(grbVars[_idxOffsets[f1_idx] + idx1], GRB_EQUAL, l.second, c);
+
+		}
 	
 		GRBQuadExpr obje;
 		float weight;

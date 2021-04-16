@@ -66,7 +66,7 @@ void MultiResolutionHierarchy::labelMesh(bool pFlip)
 	//mDual = new DualGraph(mPoly);
 
 	//////////////////////////////////////////////////////////////////////////
-#if 1
+#if 0
 	std::cout << "------------ remove bad vertex ------------\n";
 	std::vector<HE_Vertex> mergeVerts;
 	std::vector<std::vector<int>> mergeFaces;

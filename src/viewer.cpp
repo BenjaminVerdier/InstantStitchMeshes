@@ -495,6 +495,9 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
     mLayers[OutputMesh] = new CheckBox(advancedPopup, "Output mesh", layerCB);
     mLayers[OutputMeshWireframe] = new CheckBox(advancedPopup, "Output mesh wireframe", layerCB);
 
+    mLayers[ExtractedFaceLabels] = new CheckBox(advancedPopup, "Extracted Face IDs", layerCB);
+    mLayers[ExtractedVertexLabels] = new CheckBox(advancedPopup, "Extracted Vertex IDs", layerCB);
+
     mLayers[LabeledMesh] = new CheckBox(advancedPopup, "Labeled mesh (Stitch Meshing)", layerCB);
     mLayers[AlignedMesh] = new CheckBox(advancedPopup, "Aligned mesh (Stitch Meshing)", layerCB);
     mLayers[AlignedMeshEdges] = new CheckBox(advancedPopup, "Aligned mesh edges (Stitch Meshing)", layerCB);
@@ -846,13 +849,30 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
     stitchPopup->setAnchorHeight(50);
     stitchPopup->setLayout(new GroupLayout());
 
+    mLabelPicker = new ToolButton(stitchPopup, ENTYPO_ICON_BRUSH);
+    mLabelPicker->setId("labelPicker");
+    mLabelPicker->setTooltip("Label Picker: specify course/wale edge label");
+    mLabelPicker->setEnabled(false);
+
+    mStitchMeshingMakePolyBtn = new Button(stitchPopup, "Make Polyhedron", ENTYPO_ICON_COG);
+    mStitchMeshingMakePolyBtn->setBackgroundColor(Color(0, 255, 0, 25));
+    mStitchMeshingMakePolyBtn->setId("StitchMeshingMakePolyBtn");
+    mStitchMeshingMakePolyBtn->setCallback([&]() {
+        try {
+            mRes.convert2Poly();
+            mLabelPicker->setEnabled(true);
+        }
+        catch (const std::exception& e) {
+            new MessageDialog(this, MessageDialog::Type::Warning, "Error", e.what());
+        }
+        });
+
     mStitchMeshingLabelBtn = new Button(stitchPopup, "Label", ENTYPO_ICON_COG);
     mStitchMeshingLabelBtn->setBackgroundColor(Color(0, 255, 0, 25));
     mStitchMeshingLabelBtn->setId("StitchMeshingLabelBtn");
     mStitchMeshingLabelBtn->setCallback([&]() {
         try {
             //Labeling
-            mRes.convert2Poly();
             mRes.labelMesh(true);
             mRes.convertLabelMesh2Rend();
 
@@ -2100,6 +2120,10 @@ void Viewer::resetState() {
     mLayers[OutputMeshWireframe]->setEnabled(hasData);
     mLayers[OutputMesh]->setChecked(false);
     mLayers[OutputMesh]->setEnabled(hasData);
+    mLayers[ExtractedVertexLabels]->setChecked(false);
+    mLayers[ExtractedVertexLabels]->setEnabled(hasData);
+    mLayers[ExtractedFaceLabels]->setChecked(false);
+    mLayers[ExtractedFaceLabels]->setEnabled(hasData);
     mLayers[BrushStrokes]->setChecked(false);
     mLayers[BrushStrokes]->setEnabled(hasData);
     mLayers[LabeledMesh]->setChecked(false);
@@ -2953,6 +2977,37 @@ void Viewer::drawContents() {
         nvgEndFrame(mNVGContext);
     };
 
+    drawFunctor[ExtractedFaceLabels] = [&](uint32_t offset, uint32_t count) {
+        nvgBeginFrame(mNVGContext, mSize[0], mSize[1], mPixelRatio);
+        nvgFontSize(mNVGContext, 14.0f);
+        nvgFontFace(mNVGContext, "sans-bold"); 
+        nvgTextAlign(mNVGContext, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+        const MatrixXf& V = mRes.mV_tag, & N = mRes.mN_tag;
+        const std::vector<std::vector<uint32_t>>& F = mRes.F_tag;
+        nvgFillColor(mNVGContext, Color(200, 200, 255, 200));
+
+        for (uint32_t i = offset; i < offset + count; ++i) {
+            Vector4f pos;
+            Vector3f n = Vector3f::Zero(), temp_pos = Vector3f::Zero();
+            for (uint32_t j = 0; j < F[i].size(); ++j)
+            {
+                temp_pos = temp_pos + V.col(F[i][j]);
+                n = n + N.col(F[i][j]);
+            }
+            temp_pos = temp_pos / F[i].size();
+            pos << temp_pos.cast<float>(), 1.0f;
+            n.normalize();
+
+            Vector3f ray_origin = pos.head<3>() + n * pos.cwiseAbs().maxCoeff() * 1e-4f;
+            Eigen::Vector3f coord = project(Vector3f((model * pos).head<3>()), view, proj, mSize);
+            if (coord.x() < -50 || coord.x() > mSize[0] + 50 || coord.y() < -50 || coord.y() > mSize[1] + 50)
+                continue;
+            if (!mBVH->rayIntersect(Ray(ray_origin, civ.head<3>() - ray_origin, 0.0f, 1.1f)))
+                nvgText(mNVGContext, coord.x(), mSize[1] - coord.y(), std::to_string(i).c_str(), nullptr);
+        }
+        nvgEndFrame(mNVGContext);
+    };
+
     drawFunctor[VertexLabels] = [&](uint32_t offset, uint32_t count) {
         nvgBeginFrame(mNVGContext, mSize[0], mSize[1], mPixelRatio);
         nvgFontSize(mNVGContext, 14.0f);
@@ -2961,6 +3016,29 @@ void Viewer::drawContents() {
         const MatrixXf &V = mRes.V(), &N = mRes.N();
         nvgFillColor(mNVGContext, Color(200, 255, 200, 200));
         for (uint32_t i=offset; i<offset+count; ++i) {
+            Vector4f pos;
+            pos << V.col(i).cast<float>(), 1.0f;
+            Vector3f n = N.col(i);
+
+            Vector3f ray_origin = pos.head<3>() + n * pos.cwiseAbs().maxCoeff() * 1e-4f;
+            Eigen::Vector3f coord = project(Vector3f((model * pos).head<3>()), view, proj, mSize);
+            if (coord.x() < -50 || coord.x() > mSize[0] + 50 || coord.y() < -50 || coord.y() > mSize[1] + 50)
+                continue;
+            if (!mBVH->rayIntersect(Ray(ray_origin, civ.head<3>() - ray_origin, 0.0f, 1.1f)))
+                nvgText(mNVGContext, coord.x(), mSize[1] - coord.y(), std::to_string(i).c_str(), nullptr);
+        }
+        nvgEndFrame(mNVGContext);
+    };
+
+
+    drawFunctor[ExtractedVertexLabels] = [&](uint32_t offset, uint32_t count) {
+        nvgBeginFrame(mNVGContext, mSize[0], mSize[1], mPixelRatio);
+        nvgFontSize(mNVGContext, 14.0f);
+        nvgFontFace(mNVGContext, "sans-bold");
+        nvgTextAlign(mNVGContext, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+        const MatrixXf& V = mV_extracted, & N = mRes.mN_tag;
+        nvgFillColor(mNVGContext, Color(200, 255, 200, 200));
+        for (uint32_t i = offset; i < offset + count; ++i) {
             Vector4f pos;
             pos << V.col(i).cast<float>(), 1.0f;
             Vector3f n = N.col(i);
@@ -3082,6 +3160,8 @@ void Viewer::drawContents() {
     drawAmount[OutputMeshWireframe] = mOutputMeshLines;
     drawAmount[FaceLabels] = mRes.F().cols();
     drawAmount[VertexLabels] = mRes.size();
+    drawAmount[ExtractedFaceLabels] = mRes.F_tag.size();
+    drawAmount[ExtractedVertexLabels] = mV_extracted.cols();
     drawAmount[LabeledMesh] = mLabeledMeshFaces;
     drawAmount[AlignedMesh] = mAlignedMeshFaces;
     drawAmount[AlignedMeshEdges] = mAlignedMeshLines;
@@ -3103,6 +3183,8 @@ void Viewer::drawContents() {
     blockSize[InputMesh] = blockSize[OutputMesh] = blockSize[FlowLines] = 1000000;
     blockSize[FaceLabels] = 20000;
     blockSize[VertexLabels] = 20000;
+    blockSize[ExtractedFaceLabels] = 20000;
+    blockSize[ExtractedVertexLabels] = 20000;
 
     const int drawOrder[] = {
         InputMesh,
@@ -3120,7 +3202,9 @@ void Viewer::drawContents() {
         StitchMeshEdges,
         FlowLines,
         FaceLabels,
-        VertexLabels
+        VertexLabels,
+        ExtractedFaceLabels,
+        ExtractedVertexLabels
     };
 
     if (mFBO.samples() == 1) {
@@ -3301,6 +3385,8 @@ void Viewer::drawOverlay() {
         message = "Selected tool: Position Singularity Attractor";
     else if (mPositionScareBrush->pushed())
         message = "Selected tool: Position Singularity Scaring Brush";
+    else if (mLabelPicker->pushed())
+        message = "Selected tool: Label Picker";
     else
         return;
 
@@ -3373,7 +3459,7 @@ bool Viewer::scrollEvent(const Vector2i &p, const Vector2f &rel) {
 bool Viewer::toolActive() const {
     return
         mOrientationComb->pushed() || mOrientationAttractor->pushed() || mOrientationScareBrush->pushed() ||
-        mEdgeBrush->pushed() || mPositionAttractor->pushed() || mPositionScareBrush->pushed();
+        mEdgeBrush->pushed() || mPositionAttractor->pushed() || mPositionScareBrush->pushed() || mLabelPicker->pushed();
 }
 
 bool Viewer::mouseMotionEvent(const Vector2i &p, const Vector2i &rel,
@@ -3402,6 +3488,70 @@ bool Viewer::mouseMotionEvent(const Vector2i &p, const Vector2i &rel,
 bool Viewer::mouseButtonEvent(const Vector2i &p, int button, bool down, int modifiers) {
     if (!Screen::mouseButtonEvent(p, button, down, modifiers)) {
         if (toolActive()) {
+            if (mLabelPicker->pushed() && down) {
+                //Get the 3d point we clicked
+                const MatrixXf& N = mRes.N();
+                const MatrixXu& F = mRes.F();
+                Eigen::Matrix4f model, view, proj;
+                computeCameraMatrices(model, view, proj);
+
+                Eigen::Vector3f pos1 = unproject(Eigen::Vector3f(p.x(), mSize.y() - p.y(), 0.0f), view * model, proj, mSize);
+                Eigen::Vector3f pos2 = unproject(Eigen::Vector3f(p.x(), mSize.y() - p.y(), 1.0f), view * model, proj, mSize);
+
+                Ray ray(pos1, (pos2 - pos1).normalized());
+                Vector2f uv;
+                uint32_t f;
+                Float t;
+
+                if (!mBVH->rayIntersect(ray, f, t, &uv)) {
+                    return false;
+                }
+
+                Vector3f pt = ray(t);
+                cyPoint3f pt_cy(pt.x(), pt.y(), pt.z());
+                int halfedge_index = -1;
+                float best_dist = 1e4;
+                for (auto i = 0; i < mRes.mPoly->numHalfEdges(); ++i)
+                {
+                    float dist = (mRes.mPoly->halfedge(i)->midpoint() - pt_cy).LengthSquared();
+                    if (dist < best_dist)
+                    {
+                        best_dist = dist;
+                        halfedge_index = i;
+                    }
+                }
+                if (halfedge_index < 0)
+                {
+                    return false;
+                }
+
+                auto& labels = mRes.mDual->user_defined_labels;
+                if (labels.find(halfedge_index) != labels.end())
+                {
+                    if (button == GLFW_MOUSE_BUTTON_1)
+                    {
+                        labels[halfedge_index] = 0.f;
+                    }
+                    else
+                    {
+                        labels[halfedge_index] = 1.0f;
+                    }
+                }
+                else 
+                {
+
+                    if (button == GLFW_MOUSE_BUTTON_2)
+                    {
+                        labels.emplace(halfedge_index, 0.f);
+                    }
+                    else
+                    {
+                        labels.emplace(halfedge_index, 1.f);
+                    }
+                }
+                std::cout << "\nChanged label of a half edge: " << halfedge_index << " ; " << (labels[halfedge_index] == 0 ? "wale (green)" : "course (red)") << "\n";
+                return true;
+            }
             bool drag = down && button == GLFW_MOUSE_BUTTON_1;
             if (drag == mDrag)
                 return false;

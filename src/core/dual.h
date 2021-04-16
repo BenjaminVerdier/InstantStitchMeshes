@@ -131,6 +131,9 @@ public:
 	std::vector<std::tuple<int, int, int>>	_trianglePairs;
 	std::vector<virtualQuad>		_virtualQuads;
 
+	// user-defined labels
+	std::map<int, float> user_defined_labels;
+
 	friend class HE_Polyhedron;
 
 	DualGraph(HE_Polyhedron* ply);

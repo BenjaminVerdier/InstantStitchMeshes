@@ -285,6 +285,8 @@ protected:
         BrushStrokes,
         OutputMesh,
         OutputMeshWireframe,
+        ExtractedFaceLabels,
+        ExtractedVertexLabels,
         LabeledMesh,
         AlignedMesh,
         AlignedMeshEdges,
@@ -300,10 +302,11 @@ protected:
     ProgressButton *mSolveOrientationBtn, *mSolvePositionBtn;
     Button *mHierarchyMinusButton, *mHierarchyPlusButton;
     Button *mSaveBtn, *mSwitchBtn;
-    Button *mStitchMeshingLabelBtn, *mStitchMeshingAlignBtn, *mStitchMeshingStitchMeshBtn;
+    Button *mStitchMeshingMakePolyBtn, *mStitchMeshingLabelBtn, *mStitchMeshingAlignBtn, *mStitchMeshingStitchMeshBtn;
     PopupButton *mExportBtn, *mStitchBtn;
     ToolButton *mOrientationComb, *mOrientationAttractor, *mOrientationScareBrush;
     ToolButton *mEdgeBrush, *mPositionAttractor, *mPositionScareBrush;
+    ToolButton *mLabelPicker;
     TextBox *mHierarchyLevelBox, *mScaleBox, *mCreaseAngleBox;
     TextBox *mOrientationSingularityBox, *mPositionSingularityBox, *mSmoothBox;
     Slider *mScaleSlider, *mCreaseAngleSlider, *mSmoothSlider;

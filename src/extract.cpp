@@ -529,6 +529,7 @@ void extract_faces(MultiResolutionHierarchy& mRes, std::vector<std::vector<Tagge
 
     //getting things ready for stitch meshing code
     mRes.mV_tag = O;
+    mRes.mN_tag = N;
     mRes.F_tag.clear();
 
     uint32_t nF = 0, nV = O.cols(), nV_old = O.cols();
@@ -896,6 +897,8 @@ void extract_faces(MultiResolutionHierarchy& mRes, std::vector<std::vector<Tagge
         }
         mRes.mV_tag = O;
         mRes.mV_tag.conservativeResize(3, nV);
+        mRes.mN_tag = N;
+        mRes.mN_tag.conservativeResize(3, nV);
         mRes.F_tag.clear();
         for (uint32_t i = 0; i < nF; ++i) {
             Vector4u f = F.col(i);

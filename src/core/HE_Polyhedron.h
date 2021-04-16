@@ -303,6 +303,8 @@ protected:
 	bool readPlyData(std::ifstream& in, int& nv, int& nf, const short order[11], std::vector<float>& verts, std::vector<std::vector<int> >& faces);
 	HE_Face* _face(const std::vector<int>& corners) const;
 
+	friend class DualGraph;
+
 	std::vector<HE_Face*> _faces;
 	std::set<HE_Face*> _holes;
 	std::vector<HE_HalfEdge*> _halfEdges;
