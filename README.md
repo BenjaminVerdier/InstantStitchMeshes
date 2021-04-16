@@ -11,7 +11,7 @@ The reason for this is that RIM is an extension of IM to hex-dominant meshes, an
 Compiling from scratch requires CMake and a recent version of XCode on Mac,
 Visual Studio 2015 on Windows. This has not been tested on Linux.
 
-First, install [Gurobi](https://www.gurobi.com/). The version used for testing was 7.5.2, 32 bits, available [here (Windows)](https://packages.gurobi.com/7.5/Gurobi-7.5.2-win32.msi) and [here (Mac)](https://packages.gurobi.com/7.5/gurobi7.5.2_mac64.pkg).
+First, install [Gurobi](https://www.gurobi.com/). The version used for testing was 7.5.2, available [here (Windows)](https://packages.gurobi.com/7.5/Gurobi-7.5.2-win32.msi) and [here (Mac)](https://packages.gurobi.com/7.5/gurobi7.5.2_mac64.pkg). Windows needs the 32 bits version.
 
 On MacOS, compiling should be as simple as
 
