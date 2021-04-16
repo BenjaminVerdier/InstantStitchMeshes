@@ -49,6 +49,11 @@ void MultiResolutionHierarchy::convert2Poly()
 	std::cout << "Done\n";
 }
 
+void MultiResolutionHierarchy::prepLabelMesh()
+{
+	convert2Poly();
+}
+
 void MultiResolutionHierarchy::labelMesh(bool pFlip)
 {
 	//////////////////////////////////////////////////////////////////////////
@@ -66,18 +71,6 @@ void MultiResolutionHierarchy::labelMesh(bool pFlip)
 	//mDual = new DualGraph(mPoly);
 
 	//////////////////////////////////////////////////////////////////////////
-#if 0
-	std::cout << "------------ remove bad vertex ------------\n";
-	std::vector<HE_Vertex> mergeVerts;
-	std::vector<std::vector<int>> mergeFaces;
-	mDual->mergeTriangles(mergeVerts, mergeFaces);
-
-	delete mPoly;
-	delete mDual;
-
-	mPoly = new HE_Polyhedron(mergeVerts, mergeFaces);
-	mDual = new DualGraph(mPoly);
-#endif
 
 	std::string filename = "gurobi_result.txt";
 
@@ -162,21 +155,25 @@ void MultiResolutionHierarchy::labelMesh(bool pFlip)
 	std::cout << "------------------------------------------ labeling done\n";
 }
 
-void MultiResolutionHierarchy::alignMesh()
+void MultiResolutionHierarchy::prepAlignMesh()
 {
 	mDual->findFaceGroups();
 	mDual->fitFaceEdgesOrder();
 	mDual->labelTriangleFace();
 
+	mDual->findTopBtmGroupId();
+}
+
+void MultiResolutionHierarchy::alignMesh()
+{
 	////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ wale mismatch minimization ------------\n";
-	mDual->findTopBtmGroupId();
 	mDual->waleMismatchSolver();
 	mDual->findLoops();
 	mDual->findUVMismatch();
 	mDual->findWaleMismatch();
 
-	std::cout << "------------------------------------------ alignment\n";
+	std::cout << "------------------------------------------ alignment done\n";
 }
 
 void MultiResolutionHierarchy::stitchMeshing()
@@ -382,6 +379,297 @@ void MultiResolutionHierarchy::convertLabelMesh2Rend()
 			mF_LbMesh_rend(1, c) = viList[3];
 			mF_LbMesh_rend(2, c++) = viList[4];
 		}
+	}
+}
+
+void MultiResolutionHierarchy::convertAlignConstraintsMesh2Rend()
+{
+	int triNum = 0, quadNum = 0, penNum = 0;
+	for (int fi = 0; fi < mPoly->numFaces(); fi++) {
+		HE_Face* f = mPoly->face(fi);
+		if (f->hole()) continue;
+
+		if (f->NumHalfEdge() == 3) triNum++;
+		else if (f->NumHalfEdge() == 4) quadNum++;
+		else if (f->NumHalfEdge() == 5) penNum++;
+	}
+
+	int totalVNum = triNum * 3 + quadNum * 4 + penNum * 5;
+
+	mV_PrepAlMesh_rend.resize(3, totalVNum);
+	mC_PrepAlMesh_rend.resize(3, totalVNum);
+	mT_PrepAlMesh_rend.resize(2, totalVNum);
+ 
+	int vi = 0;
+	for (int j = 0; j < (int)mDual->_groupFaceIdx.size(); j++)
+	{
+		if (mDual->user_defined_alignments.find(j) == mDual->user_defined_alignments.end())
+		{
+			continue;
+		}
+		bool flip = mDual->user_defined_alignments[j] == 0;
+		cyPoint3f c = colorConverter(indexcolors[j % 128]);
+		for (int i = 0; i < (int)mDual->_groupFaceIdx[j].size(); i++)
+		{
+			const HE_Face* f = mPoly->face(mDual->_groupFaceIdx[j][i]);
+			if (f->hole())
+				continue;
+
+			HE_Face::const_edge_circulator e = f->begin();
+			HE_Face::const_edge_circulator sentinel = e;
+
+			int idx = 0;
+			if (f->TestFlag(VEF_FLAG_QUAD))
+			{
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					if (flip)
+					{
+						switch (idx)
+						{
+						case 2:
+							mT_PrepAlMesh_rend(0, vi) = 1;
+							mT_PrepAlMesh_rend(1, vi) = 0;
+							break;
+						case 3:
+							mT_PrepAlMesh_rend(0, vi) = 1;
+							mT_PrepAlMesh_rend(1, vi) = 1;
+							break;
+						case 0:
+							mT_PrepAlMesh_rend(0, vi) = 0;
+							mT_PrepAlMesh_rend(1, vi) = 1;
+							break;
+						case 1:
+							mT_PrepAlMesh_rend(0, vi) = 0;
+							mT_PrepAlMesh_rend(1, vi) = 0;
+							break;
+						default: break;
+						}
+					}
+					else
+					{
+						switch (idx)
+						{
+						case 0:
+							mT_PrepAlMesh_rend(0, vi) = 1;
+							mT_PrepAlMesh_rend(1, vi) = 0;
+							break;
+						case 1:
+							mT_PrepAlMesh_rend(0, vi) = 1;
+							mT_PrepAlMesh_rend(1, vi) = 1;
+							break;
+						case 2:
+							mT_PrepAlMesh_rend(0, vi) = 0;
+							mT_PrepAlMesh_rend(1, vi) = 1;
+							break;
+						case 3:
+							mT_PrepAlMesh_rend(0, vi) = 0;
+							mT_PrepAlMesh_rend(1, vi) = 0;
+							break;
+						default: break;
+						}
+					}
+					mV_PrepAlMesh_rend(0, vi) = v->position().x;
+					mV_PrepAlMesh_rend(1, vi) = v->position().y;
+					mV_PrepAlMesh_rend(2, vi) = v->position().z;
+
+					mC_PrepAlMesh_rend(0, vi) = c.x;
+					mC_PrepAlMesh_rend(1, vi) = c.y;
+					mC_PrepAlMesh_rend(2, vi++) = c.z;
+					++e; ++idx;
+				} while (e != sentinel);
+			}
+			else if (f->TestFlag(VEF_FLAG_INC))
+			{
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					switch (idx)
+					{
+					case 0:
+						mT_PrepAlMesh_rend(0, vi) = 1;
+						mT_PrepAlMesh_rend(1, vi) = 0;
+						break;
+					case 1:
+						mT_PrepAlMesh_rend(0, vi) = 1;
+						mT_PrepAlMesh_rend(1, vi) = 1;
+						break;
+					case 2:
+						mT_PrepAlMesh_rend(0, vi) = 0;
+						mT_PrepAlMesh_rend(1, vi) = 1;
+						break;
+					case 3:
+						mT_PrepAlMesh_rend(0, vi) = 0;
+						mT_PrepAlMesh_rend(1, vi) = 0;
+						break;
+					case 4:
+						mT_PrepAlMesh_rend(0, vi) = 0.5;
+						mT_PrepAlMesh_rend(1, vi) = 0;
+						break;
+					default: break;
+					}
+					mV_PrepAlMesh_rend(0, vi) = v->position().x;
+					mV_PrepAlMesh_rend(1, vi) = v->position().y;
+					mV_PrepAlMesh_rend(2, vi) = v->position().z;
+					mC_PrepAlMesh_rend(0, vi) = c.x;
+					mC_PrepAlMesh_rend(1, vi) = c.y;
+					mC_PrepAlMesh_rend(2, vi++) = c.z;
+					++e; ++idx;
+				} while (e != sentinel);
+			}
+			else if (f->TestFlag(VEF_FLAG_DEC))
+			{
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					switch (idx)
+					{
+					case 0:
+						mT_PrepAlMesh_rend(0, vi) = 1;
+						mT_PrepAlMesh_rend(1, vi) = 0;
+						break;
+					case 1:
+						mT_PrepAlMesh_rend(0, vi) = 1;
+						mT_PrepAlMesh_rend(1, vi) = 1;
+						break;
+					case 2:
+						mT_PrepAlMesh_rend(0, vi) = 0.5;
+						mT_PrepAlMesh_rend(1, vi) = 1;
+						break;
+					case 3:
+						mT_PrepAlMesh_rend(0, vi) = 0;
+						mT_PrepAlMesh_rend(1, vi) = 1;
+						break;
+					case 4:
+						mT_PrepAlMesh_rend(0, vi) = 0;
+						mT_PrepAlMesh_rend(1, vi) = 0;
+						break;
+					default: break;
+					}
+					mV_PrepAlMesh_rend(0, vi) = v->position().x;
+					mV_PrepAlMesh_rend(1, vi) = v->position().y;
+					mV_PrepAlMesh_rend(2, vi) = v->position().z;
+					mC_PrepAlMesh_rend(0, vi) = c.x;
+					mC_PrepAlMesh_rend(1, vi) = c.y;
+					mC_PrepAlMesh_rend(2, vi++) = c.z;
+					++e; ++idx;
+				} while (e != sentinel);
+			}
+			else if (f->TestFlag(VEF_FLAG_QUAD_SHORTROW_L) ||
+				f->TestFlag(VEF_FLAG_QUAD_SHORTROW_R))
+			{
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					mT_PrepAlMesh_rend(0, vi) = 0;
+					mT_PrepAlMesh_rend(1, vi) = 0;
+					mV_PrepAlMesh_rend(0, vi) = v->position().x;
+					mV_PrepAlMesh_rend(1, vi) = v->position().y;
+					mV_PrepAlMesh_rend(2, vi) = v->position().z;
+					mC_PrepAlMesh_rend(0, vi) = c.x;
+					mC_PrepAlMesh_rend(1, vi) = c.y;
+					mC_PrepAlMesh_rend(2, vi++) = c.z;
+					++e;
+				} while (e != sentinel);
+			}
+			else {
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					mT_PrepAlMesh_rend(0, vi) = 0;
+					mT_PrepAlMesh_rend(1, vi) = 0;
+					mV_PrepAlMesh_rend(0, vi) = v->position().x;
+					mV_PrepAlMesh_rend(1, vi) = v->position().y;
+					mV_PrepAlMesh_rend(2, vi) = v->position().z;
+					mC_PrepAlMesh_rend(0, vi) = c.x;
+					mC_PrepAlMesh_rend(1, vi) = c.y;
+					mC_PrepAlMesh_rend(2, vi++) = c.z;
+					++e;
+				} while (e != sentinel);
+			}
+		}
+	}
+
+	int triTotalNum = triNum + 2 * quadNum + 3 * penNum;
+
+	mF_PrepAlMesh_rend.resize(3, triTotalNum);
+
+	int c = 0;
+	vi = 0;
+	for (int j = 0; j < (int)mDual->_groupFaceIdx.size(); j++)
+	{
+		if (mDual->user_defined_alignments.find(j) == mDual->user_defined_alignments.end())
+		{
+			continue;
+		}
+		for (int i = 0; i < (int)mDual->_groupFaceIdx[j].size(); i++)
+		{
+			const HE_Face* f = mPoly->face(mDual->_groupFaceIdx[j][i]);
+
+			if (f->hole()) continue;
+
+			std::vector<int> viList; viList.clear();
+			HE_Face::const_edge_circulator e = f->begin();
+			HE_Face::const_edge_circulator sentinel = e;
+			do
+			{
+				viList.push_back(vi);
+				vi++;
+				++e;
+			} while (e != sentinel);
+
+			if (f->NumHalfEdge() == 3)
+			{
+				mF_PrepAlMesh_rend(0, c) = viList[0];
+				mF_PrepAlMesh_rend(1, c) = viList[1];
+				mF_PrepAlMesh_rend(2, c++) = viList[2];
+			}
+			else if (f->NumHalfEdge() == 4)
+			{
+				mF_PrepAlMesh_rend(0, c) = viList[0];
+				mF_PrepAlMesh_rend(1, c) = viList[1];
+				mF_PrepAlMesh_rend(2, c++) = viList[3];
+
+				mF_PrepAlMesh_rend(0, c) = viList[1];
+				mF_PrepAlMesh_rend(1, c) = viList[2];
+				mF_PrepAlMesh_rend(2, c++) = viList[3];
+			}
+			else if (f->NumHalfEdge() == 5)
+			{
+				mF_PrepAlMesh_rend(0, c) = viList[0];
+				mF_PrepAlMesh_rend(1, c) = viList[1];
+				mF_PrepAlMesh_rend(2, c++) = viList[4];
+				   
+				mF_PrepAlMesh_rend(0, c) = viList[1];
+				mF_PrepAlMesh_rend(1, c) = viList[2];
+				mF_PrepAlMesh_rend(2, c++) = viList[4];
+				   
+				mF_PrepAlMesh_rend(0, c) = viList[2];
+				mF_PrepAlMesh_rend(1, c) = viList[3];
+				mF_PrepAlMesh_rend(2, c++) = viList[4];
+			}
+		}
+	}
+
+	mE_PrepAlMesh_rend.resize(6, mPoly->numHalfEdges() * 2);
+
+	for (int ei = 0; ei < mPoly->numHalfEdges(); ei++)
+	{
+		HE_HalfEdge* he = mPoly->halfedge(ei);
+		mE_PrepAlMesh_rend(0, ei * 2 + 0) = he->src()->position().x;
+		mE_PrepAlMesh_rend(1, ei * 2 + 0) = he->src()->position().y;
+		mE_PrepAlMesh_rend(2, ei * 2 + 0) = he->src()->position().z;
+		mE_PrepAlMesh_rend(3, ei * 2 + 0) = 1e-3;
+		mE_PrepAlMesh_rend(4, ei * 2 + 0) = 1e-3;
+		mE_PrepAlMesh_rend(5, ei * 2 + 0) = 1e-3;
+		   
+		mE_PrepAlMesh_rend(0, ei * 2 + 1) = he->dst()->position().x;
+		mE_PrepAlMesh_rend(1, ei * 2 + 1) = he->dst()->position().y;
+		mE_PrepAlMesh_rend(2, ei * 2 + 1) = he->dst()->position().z;
+		mE_PrepAlMesh_rend(3, ei * 2 + 1) = 1e-3;
+		mE_PrepAlMesh_rend(4, ei * 2 + 1) = 1e-3;
+		mE_PrepAlMesh_rend(5, ei * 2 + 1) = 1e-3;
 	}
 }
 

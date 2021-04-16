@@ -263,6 +263,8 @@ protected:
 
     /* Stitch Meshing related*/
     SerializableGLShader mLabeledMesh_F;
+    SerializableGLShader mAlignedConstraintsMesh_F;
+    SerializableGLShader mAlignedConstraintsMesh_E;
     SerializableGLShader mAlignedMesh_F;
     SerializableGLShader mAlignedMesh_E;
     SerializableGLShader mStitchMeshing_F;
@@ -288,6 +290,8 @@ protected:
         ExtractedFaceLabels,
         ExtractedVertexLabels,
         LabeledMesh,
+        AlignedConstraintsMesh,
+        AlignedConstraintsMeshEdges,
         AlignedMesh,
         AlignedMeshEdges,
         StitchMesh,
@@ -302,11 +306,11 @@ protected:
     ProgressButton *mSolveOrientationBtn, *mSolvePositionBtn;
     Button *mHierarchyMinusButton, *mHierarchyPlusButton;
     Button *mSaveBtn, *mSwitchBtn;
-    Button *mStitchMeshingMakePolyBtn, *mStitchMeshingLabelBtn, *mStitchMeshingAlignBtn, *mStitchMeshingStitchMeshBtn;
+    Button *mStitchMeshingLabelPrepBtn, *mStitchMeshingLabelBtn, *mStitchMeshingAlignPrepBtn, *mStitchMeshingAlignBtn, *mStitchMeshingStitchMeshBtn;
     PopupButton *mExportBtn, *mStitchBtn;
     ToolButton *mOrientationComb, *mOrientationAttractor, *mOrientationScareBrush;
     ToolButton *mEdgeBrush, *mPositionAttractor, *mPositionScareBrush;
-    ToolButton *mLabelPicker;
+    ToolButton *mLabelPicker, *mAlignPicker;
     TextBox *mHierarchyLevelBox, *mScaleBox, *mCreaseAngleBox;
     TextBox *mOrientationSingularityBox, *mPositionSingularityBox, *mSmoothBox;
     Slider *mScaleSlider, *mCreaseAngleSlider, *mSmoothSlider;
@@ -327,4 +331,5 @@ protected:
     uint32_t mOutputMeshFaces, mOutputMeshLines;
     uint32_t mFlowLineFaces, mStrokeFaces;
     uint32_t mLabeledMeshFaces, mAlignedMeshFaces, mAlignedMeshLines, mStitchMeshFaces, mStitchMeshLines;
+    uint32_t mAlignedConstraintsMeshFaces, mAlignedConstraintsMeshLines;
 };

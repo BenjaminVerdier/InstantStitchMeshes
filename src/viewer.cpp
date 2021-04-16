@@ -237,6 +237,15 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
         g_fs,
         g_geo);
 
+    mAlignedConstraintsMesh_E.init("Shader_E_al",
+        (const char*)shader_lines_vert,
+        (const char*)shader_lines_frag);
+
+    mAlignedConstraintsMesh_F.init("Shader_F_al",
+        g_vs,
+        g_fs,
+        g_geo);
+
     mAlignedMesh_E.init("Shader_E_al",
         (const char*)shader_lines_vert,
         (const char*)shader_lines_frag);
@@ -499,6 +508,8 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
     mLayers[ExtractedVertexLabels] = new CheckBox(advancedPopup, "Extracted Vertex IDs", layerCB);
 
     mLayers[LabeledMesh] = new CheckBox(advancedPopup, "Labeled mesh (Stitch Meshing)", layerCB);
+    mLayers[AlignedConstraintsMesh] = new CheckBox(advancedPopup, "Aligned mesh (Stitch Meshing)", layerCB);
+    mLayers[AlignedConstraintsMeshEdges] = new CheckBox(advancedPopup, "Aligned mesh edges (Stitch Meshing)", layerCB);
     mLayers[AlignedMesh] = new CheckBox(advancedPopup, "Aligned mesh (Stitch Meshing)", layerCB);
     mLayers[AlignedMeshEdges] = new CheckBox(advancedPopup, "Aligned mesh edges (Stitch Meshing)", layerCB);
     mLayers[StitchMesh] = new CheckBox(advancedPopup, "Stitch mesh (Stitch Meshing)", layerCB);
@@ -673,6 +684,8 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
             mLayers[OutputMesh]->setChecked(false);
             mLayers[OutputMeshWireframe]->setChecked(false);
             mLayers[LabeledMesh]->setChecked(false);
+            mLayers[AlignedConstraintsMesh]->setChecked(false);
+            mLayers[AlignedConstraintsMeshEdges]->setChecked(false);
             mLayers[AlignedMesh]->setChecked(false);
             mLayers[AlignedMeshEdges]->setChecked(false);
             mLayers[StitchMesh]->setChecked(false);
@@ -854,12 +867,17 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
     mLabelPicker->setTooltip("Label Picker: specify course/wale edge label");
     mLabelPicker->setEnabled(false);
 
-    mStitchMeshingMakePolyBtn = new Button(stitchPopup, "Make Polyhedron", ENTYPO_ICON_COG);
-    mStitchMeshingMakePolyBtn->setBackgroundColor(Color(0, 255, 0, 25));
-    mStitchMeshingMakePolyBtn->setId("StitchMeshingMakePolyBtn");
-    mStitchMeshingMakePolyBtn->setCallback([&]() {
+    mAlignPicker = new ToolButton(stitchPopup, ENTYPO_ICON_BRUSH);
+    mAlignPicker->setId("alignPicker");
+    mAlignPicker->setTooltip("Align Picker: specify wale direction of row");
+    mAlignPicker->setEnabled(false);
+
+    mStitchMeshingLabelPrepBtn = new Button(stitchPopup, "Prep Label", ENTYPO_ICON_COG);
+    mStitchMeshingLabelPrepBtn->setBackgroundColor(Color(0, 255, 0, 25));
+    mStitchMeshingLabelPrepBtn->setId("StichMeshingLabelPrepBtn");
+    mStitchMeshingLabelPrepBtn->setCallback([&]() {
         try {
-            mRes.convert2Poly();
+            mRes.prepLabelMesh();
             mLabelPicker->setEnabled(true);
         }
         catch (const std::exception& e) {
@@ -892,6 +910,8 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
 
             mLayers[LabeledMesh]->setEnabled(true);
             mLayers[LabeledMesh]->setChecked(true);
+            mLayers[AlignedConstraintsMesh]->setChecked(false);
+            mLayers[AlignedConstraintsMeshEdges]->setChecked(false);
             mLayers[AlignedMesh]->setChecked(false);
             mLayers[AlignedMeshEdges]->setChecked(false);
             mLayers[StitchMeshEdges]->setChecked(false);
@@ -905,7 +925,20 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
         }
         });
 
-
+    mStitchMeshingAlignPrepBtn = new Button(stitchPopup, "Prep Align", ENTYPO_ICON_COG);
+    mStitchMeshingAlignPrepBtn->setBackgroundColor(Color(0, 255, 0, 25));
+    mStitchMeshingAlignPrepBtn->setId("StitchMeshingMakePolyBtn");
+    mStitchMeshingAlignPrepBtn->setCallback([&]() {
+        try {
+            mRes.prepAlignMesh();
+            mAlignPicker->setEnabled(true);
+            mLayers[AlignedConstraintsMesh]->setChecked(true);
+            mLayers[AlignedConstraintsMeshEdges]->setChecked(true);
+        }
+        catch (const std::exception& e) {
+            new MessageDialog(this, MessageDialog::Type::Warning, "Error", e.what());
+        }
+        });
 
     mStitchMeshingAlignBtn = new Button(stitchPopup, "Align", ENTYPO_ICON_COG);
     mStitchMeshingAlignBtn->setBackgroundColor(Color(0, 255, 0, 25));
@@ -935,6 +968,8 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
             mLayers[AlignedMesh]->setEnabled(true);
             mLayers[AlignedMeshEdges]->setEnabled(true);
             mLayers[LabeledMesh]->setChecked(false);
+            mLayers[AlignedConstraintsMesh]->setChecked(false);
+            mLayers[AlignedConstraintsMeshEdges]->setChecked(false);
             mLayers[AlignedMesh]->setChecked(true);
             mLayers[AlignedMeshEdges]->setChecked(true);
             mLayers[StitchMeshEdges]->setChecked(false);
@@ -1035,6 +1070,8 @@ Viewer::~Viewer() {
     mOutputMeshWireframeShader.free();
     mOutputMeshShader.free();
     mLabeledMesh_F.free();
+    mAlignedConstraintsMesh_F.free();
+    mAlignedConstraintsMesh_E.free();
     mAlignedMesh_F.free();
     mAlignedMesh_E.free();
     mStitchMeshing_F.free();
@@ -2078,6 +2115,8 @@ void Viewer::resetState() {
     mFlowLineFaces = 0;
     mStrokeFaces = 0;
     mLabeledMeshFaces = 0;
+    mAlignedConstraintsMeshFaces = 0;
+    mAlignedConstraintsMeshLines = 0;
     mAlignedMeshFaces = 0;
     mAlignedMeshLines = 0;
     mStitchMeshFaces = 0;
@@ -2128,6 +2167,10 @@ void Viewer::resetState() {
     mLayers[BrushStrokes]->setEnabled(hasData);
     mLayers[LabeledMesh]->setChecked(false);
     mLayers[LabeledMesh]->setEnabled(hasData);
+    mLayers[AlignedConstraintsMesh]->setChecked(false);
+    mLayers[AlignedConstraintsMesh]->setEnabled(hasData);
+    mLayers[AlignedConstraintsMeshEdges]->setChecked(false);
+    mLayers[AlignedConstraintsMeshEdges]->setEnabled(hasData);
     mLayers[AlignedMesh]->setChecked(false);
     mLayers[AlignedMesh]->setEnabled(hasData);
     mLayers[AlignedMeshEdges]->setChecked(false);
@@ -3075,6 +3118,41 @@ void Viewer::drawContents() {
         glDisable(GL_POLYGON_OFFSET_FILL);
     };
 
+    drawFunctor[AlignedConstraintsMesh] = [&](uint32_t offset, uint32_t count) {
+
+        mAlignedConstraintsMesh_F.bind();
+
+        glEnable(GL_TEXTURE_2D);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, mArrowTexture.texture());
+        mAlignedConstraintsMesh_F.setUniform("arrowTexture", 0);
+
+        mAlignedConstraintsMesh_F.setUniform("light_position", Vector3f(0.0f, 0.3f, 5.0f));
+        mAlignedConstraintsMesh_F.setUniform("model", model);
+        mAlignedConstraintsMesh_F.setUniform("view", view);
+        mAlignedConstraintsMesh_F.setUniform("proj", proj);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1.0, 1.0);
+        mAlignedConstraintsMesh_F.drawIndexed(GL_TRIANGLES, 0, mRes.mF_PrepAlMesh_rend.cols());
+
+        glDisable(GL_TEXTURE_2D);
+
+        glDisable(GL_POLYGON_OFFSET_FILL);
+    };
+
+    drawFunctor[AlignedConstraintsMeshEdges] = [&](uint32_t offset, uint32_t count) {
+        //Edges
+        if (mFBO.samples() == 1) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        }
+        mAlignedConstraintsMesh_E.bind();
+        mAlignedConstraintsMesh_E.setUniform("mvp", Eigen::Matrix4f(proj * view * model));
+        mAlignedConstraintsMesh_E.drawArray(GL_LINES, offset, count);
+        if (mFBO.samples() == 1)
+            glDisable(GL_BLEND);
+    };
+
     drawFunctor[AlignedMesh] = [&](uint32_t offset, uint32_t count) {
 
         mAlignedMesh_F.bind();
@@ -3387,6 +3465,8 @@ void Viewer::drawOverlay() {
         message = "Selected tool: Position Singularity Scaring Brush";
     else if (mLabelPicker->pushed())
         message = "Selected tool: Label Picker";
+    else if (mAlignPicker->pushed())
+        message = "Selected tool: Align Picker";
     else
         return;
 
@@ -3459,7 +3539,8 @@ bool Viewer::scrollEvent(const Vector2i &p, const Vector2f &rel) {
 bool Viewer::toolActive() const {
     return
         mOrientationComb->pushed() || mOrientationAttractor->pushed() || mOrientationScareBrush->pushed() ||
-        mEdgeBrush->pushed() || mPositionAttractor->pushed() || mPositionScareBrush->pushed() || mLabelPicker->pushed();
+        mEdgeBrush->pushed() || mPositionAttractor->pushed() || mPositionScareBrush->pushed() ||
+        mLabelPicker->pushed() || mAlignPicker->pushed();
 }
 
 bool Viewer::mouseMotionEvent(const Vector2i &p, const Vector2i &rel,
@@ -3490,8 +3571,6 @@ bool Viewer::mouseButtonEvent(const Vector2i &p, int button, bool down, int modi
         if (toolActive()) {
             if (mLabelPicker->pushed() && down) {
                 //Get the 3d point we clicked
-                const MatrixXf& N = mRes.N();
-                const MatrixXu& F = mRes.F();
                 Eigen::Matrix4f model, view, proj;
                 computeCameraMatrices(model, view, proj);
 
@@ -3540,7 +3619,7 @@ bool Viewer::mouseButtonEvent(const Vector2i &p, int button, bool down, int modi
                 else 
                 {
 
-                    if (button == GLFW_MOUSE_BUTTON_2)
+                    if (button == GLFW_MOUSE_BUTTON_1)
                     {
                         labels.emplace(halfedge_index, 0.f);
                     }
@@ -3552,6 +3631,100 @@ bool Viewer::mouseButtonEvent(const Vector2i &p, int button, bool down, int modi
                 std::cout << "\nChanged label of a half edge: " << halfedge_index << " ; " << (labels[halfedge_index] == 0 ? "wale (green)" : "course (red)") << "\n";
                 return true;
             }
+            if (mAlignPicker->pushed() && down) {
+                //Get the 3d point we clicked
+                Eigen::Matrix4f model, view, proj;
+                computeCameraMatrices(model, view, proj);
+
+                Eigen::Vector3f pos1 = unproject(Eigen::Vector3f(p.x(), mSize.y() - p.y(), 0.0f), view * model, proj, mSize);
+                Eigen::Vector3f pos2 = unproject(Eigen::Vector3f(p.x(), mSize.y() - p.y(), 1.0f), view * model, proj, mSize);
+
+                Ray ray(pos1, (pos2 - pos1).normalized());
+                Vector2f uv;
+                uint32_t f;
+                Float t;
+
+                if (!mBVH->rayIntersect(ray, f, t, &uv)) {
+                    return false;
+                }
+
+                Vector3f pt = ray(t);
+                cyPoint3f pt_cy(pt.x(), pt.y(), pt.z());
+                int face_idx = -1;
+                float best_dist = 1e4;
+                for (auto i = 0; i < mRes.mPoly->numFaces(); ++i)
+                {
+                    float dist = (mRes.mPoly->face(i)->centroid() - pt_cy).LengthSquared();
+                    if (dist < best_dist)
+                    {
+                        best_dist = dist;
+                        face_idx = i;
+                    }
+                }
+                if (face_idx < 0)
+                {
+                    return false;
+                }
+                int group_idx = -1;
+                auto& grps = mRes.mDual->_groupFaceIdx;
+                for (int i = 0; i < grps.size(); ++i)
+                {
+                    if (std::find(grps[i].begin(), grps[i].end(), face_idx) != grps[i].end())
+                    {
+                        group_idx = i;
+                        break;
+                    }
+                }
+
+                if (group_idx < 0)
+                {
+                    return false;
+                }
+
+                auto& labels = mRes.mDual->user_defined_alignments;
+                if (labels.find(group_idx) != labels.end())
+                {
+                    if (button == GLFW_MOUSE_BUTTON_1)
+                    {
+                        labels[group_idx] = 0.f;
+                    }
+                    else
+                    {
+                        labels[group_idx] = 1.0f;
+                    }
+                }
+                else 
+                {
+
+                    if (button == GLFW_MOUSE_BUTTON_1)
+                    {
+                        labels.emplace(group_idx, 0.f);
+                    }
+                    else
+                    {
+                        labels.emplace(group_idx, 1.f);
+                    }
+                }
+                std::cout << "\nChanged alignment of a group of faces: " << group_idx << " ; " << labels[group_idx] << "\n";
+                //Update the rendering
+                mRes.convertAlignConstraintsMesh2Rend();
+                // write to render buffer
+                mAlignedConstraintsMeshFaces = mRes.mF_PrepAlMesh_rend.cols();
+                mAlignedConstraintsMeshLines = mRes.mE_PrepAlMesh_rend.cols();
+
+                mAlignedConstraintsMesh_F.bind();
+                mAlignedConstraintsMesh_F.uploadAttrib("position", mRes.mV_PrepAlMesh_rend);
+                mAlignedConstraintsMesh_F.uploadAttrib("tex_coord", mRes.mT_PrepAlMesh_rend);
+                mAlignedConstraintsMesh_F.uploadAttrib("color", mRes.mC_PrepAlMesh_rend);
+                mAlignedConstraintsMesh_F.uploadIndices(mRes.mF_PrepAlMesh_rend);
+
+                mAlignedConstraintsMesh_E.bind();
+                mAlignedConstraintsMesh_E.uploadAttrib("position", MatrixXf(mRes.mE_PrepAlMesh_rend.block(0, 0, 3, mRes.mE_PrepAlMesh_rend.cols())));
+                mAlignedConstraintsMesh_E.uploadAttrib("color", MatrixXf(mRes.mE_PrepAlMesh_rend.block(3, 0, 3, mRes.mE_PrepAlMesh_rend.cols())));
+                repaint();
+                return true;
+            }
+
             bool drag = down && button == GLFW_MOUSE_BUTTON_1;
             if (drag == mDrag)
                 return false;

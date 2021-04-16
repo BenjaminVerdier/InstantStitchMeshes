@@ -115,10 +115,13 @@ public:
     //////////////////////////////////////////////////////////////////////////
     // stitch meshing 
     void convert2Poly();
+    void prepLabelMesh();
     void labelMesh(bool pFlip);
+    void prepAlignMesh();
     void alignMesh();
     void stitchMeshing();
     void convertLabelMesh2Rend();
+    void convertAlignConstraintsMesh2Rend();
     void convertAlignMesh2Rend();
     void convertStitchMesh2Rend();
     void removeQuadDecInc();
@@ -160,6 +163,14 @@ public:
     MatrixXu mF_LbMesh_rend;
     MatrixXf mE_LbMesh_rend;
     MatrixXf mT_LbMesh_rend;
+
+    //////////////////////////////////////////////////////////////////////////
+    // alignement constraints mesh 
+    MatrixXf mV_PrepAlMesh_rend;
+    MatrixXu mF_PrepAlMesh_rend;
+    MatrixXf mE_PrepAlMesh_rend;
+    MatrixXf mT_PrepAlMesh_rend;
+    MatrixXf mC_PrepAlMesh_rend;
 
     //////////////////////////////////////////////////////////////////////////
     // aligned mesh 

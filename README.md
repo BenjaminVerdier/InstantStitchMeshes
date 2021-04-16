@@ -43,11 +43,12 @@ Clicking the left mouse button and dragging rotates the object; right-dragging
 
 To get the Stitch Meshing part to work, there needs to be no polygons with more than 4 sides. To implement this, check the "Pure Quads" checkbox in the "Export" menu to divide every polygon into quads through their center, or use the "Split n-gons" buttons to split pentagons and up into triangles/quads through their flatest angle.
 
-Once the mesh is ready, use "Make Polyhedron" to compute the polyhedron structure used by the Stitch Meshing code. After this, you can select the brush tool above to define certain labels on certain edges: Left click to make it a Wale edge, right-click to make it a Course edge.
+Once the mesh is ready, use "Prep Label" to compute the polyhedron structure used by the Stitch Meshing code. After this, you can select the left brush tool above to define certain labels on certain edges: Left click to make it a Wale edge, right-click to make it a Course edge.
 Note: Those constraints are satisfied if possible. If there is an impossibility the solver will most likely ignore one or more of those constraints.
 
 To label the entire mesh, click "Label". This will assign Course (red) and Wale (green) labels to the mesh elements, splitting and rearranging as necessary.
 
+Use the right brush tool above to select the alignment picking tool. Click on a face to change the course direction of the row it's in. (WIP: need visual feedback)
 To align, click "Align". This will define a Course direction for every row.
 
 To compute the final stitch mesh, click "Stitch Mesh". This will split all elements into quads through their respective centers.

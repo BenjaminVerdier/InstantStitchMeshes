@@ -1481,10 +1481,8 @@ void DualGraph::gurobiSolver(std::string pFilename)
 			}
 		}
 
-		std::cout << "\nUser defined labels:\n";
 		for (auto const& l : user_defined_labels)
 		{
-			std::cout << l.first << " : " << l.second << "\n";
 			HE_HalfEdge* he0 = _poly->halfedge(l.first);
 			HE_HalfEdge* he1 = he0->twin();
 			
@@ -2276,6 +2274,15 @@ void DualGraph::waleMismatchSolver()
 		{
 			c = 'c' + std::to_string(gi) + '0';
 			model.addConstr(grbVars[gi * 2 + 0] + grbVars[gi * 2 + 1], GRB_EQUAL, 1, c);
+		}
+
+		for (auto const& a : user_defined_alignments)
+		{
+			int gi = a.first;
+			c = 'u' + std::to_string(gi) + '0';
+			model.addConstr(grbVars[gi * 2 + 0], GRB_EQUAL, (a.second == 1 ? 0 : 1), c);
+			c = 'u' + std::to_string(gi) + '1';
+			model.addConstr(grbVars[gi * 2 + 1], GRB_EQUAL, (a.second == 1 ? 1 : 0), c);
 		}
 
 		GRBQuadExpr obje;
