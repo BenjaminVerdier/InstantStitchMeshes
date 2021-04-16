@@ -11,14 +11,21 @@ The reason for this is that RIM is an extension of IM to hex-dominant meshes, an
 Compiling from scratch requires CMake and a recent version of XCode on Mac,
 Visual Studio 2015 on Windows. This has not been tested on Linux.
 
-First, install [Gurobi](https://www.gurobi.com/). The version used for testing was 7.5.2, available [here (Windows)](https://packages.gurobi.com/7.5/Gurobi-7.5.2-win32.msi) and [here (Mac)](https://packages.gurobi.com/7.5/gurobi7.5.2_mac64.pkg). Windows needs the 32 bits version.
+First, install [Gurobi](https://www.gurobi.com/). The version used for testing was 7.5.2, available [here (Windows)](https://packages.gurobi.com/7.5/Gurobi-7.5.2-win32.msi) and [here (Mac)](https://packages.gurobi.com/7.5/gurobi7.5.2_mac64.pkg). Windows needs the 32 bits version. 
 
-On MacOS, compiling should be as simple as
+On MacOS, compiling should be straightforward:
 
     git clone --recursive https://github.com/BenjaminVerdier/InstantStitchMeshes
     cd InstantStitchMeshes
-    cmake .
+    mkdir build && cd build
+    cmake ..
     make -j 4
+    
+Note that some further adjustments in CmakeList.txt will be needed for linking Gurobi library before compiling: line ```197```
+
+    optimized gurobi_c++ 
+    debug gurobi_c++
+
 
 On Windows, open the generated file ``InstantMeshes.sln`` after step 3 and proceed building as usual from within Visual Studio.
 
