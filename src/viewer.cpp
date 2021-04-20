@@ -242,6 +242,10 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
         g_fs,
         g_geo);
 
+    mLabeledConstraintsMesh_E.init("Shader_E_al",
+        (const char*)shader_lines_vert,
+        (const char*)shader_lines_frag);
+
     mAlignedMesh_E.init("Shader_E_al",
         (const char*)shader_lines_vert,
         (const char*)shader_lines_frag);
@@ -503,6 +507,7 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
     mLayers[ExtractedFaceLabels] = new CheckBox(advancedPopup, "Extracted Face IDs", layerCB);
     mLayers[ExtractedVertexLabels] = new CheckBox(advancedPopup, "Extracted Vertex IDs", layerCB);
 
+    mLayers[LabeledConstraintsMeshEdges] = new CheckBox(advancedPopup, "Labeled mesh - Constraints (Stitch Meshing)", layerCB);
     mLayers[LabeledMesh] = new CheckBox(advancedPopup, "Labeled mesh (Stitch Meshing)", layerCB);
     mLayers[AlignedConstraintsMesh] = new CheckBox(advancedPopup, "Aligned mesh - Constraints (Stitch Meshing)", layerCB);
     mLayers[AlignedMesh] = new CheckBox(advancedPopup, "Aligned mesh (Stitch Meshing)", layerCB);
@@ -873,6 +878,16 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
         try {
             mRes.prepLabelMesh();
             mLabelPicker->setEnabled(true);
+            mRes.initLabeledConstraintsMeshRend();
+            mLabeledConstraintsMeshLines = mRes.mE_PrepLbMesh_rend.cols();
+
+            mLabeledConstraintsMesh_E.bind();
+            mLabeledConstraintsMesh_E.uploadAttrib("position", MatrixXf(mRes.mE_PrepLbMesh_rend.block(0, 0, 3, mRes.mE_PrepLbMesh_rend.cols())));
+            mLabeledConstraintsMesh_E.uploadAttrib("color", MatrixXf(mRes.mE_PrepLbMesh_rend.block(3, 0, 3, mRes.mE_PrepLbMesh_rend.cols())));
+
+            mLayers[OutputMeshWireframe]->setChecked(false);
+            mLayers[LabeledConstraintsMeshEdges]->setChecked(true);
+            repaint();
         }
         catch (const std::exception& e) {
             new MessageDialog(this, MessageDialog::Type::Warning, "Error", e.what());
@@ -904,6 +919,7 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
 
             mLayers[LabeledMesh]->setEnabled(true);
             mLayers[LabeledMesh]->setChecked(true);
+            mLayers[LabeledConstraintsMeshEdges]->setChecked(false);
             mLayers[AlignedConstraintsMesh]->setChecked(false);
             mLayers[AlignedMesh]->setChecked(false);
             mLayers[AlignedMeshEdges]->setChecked(false);
@@ -1060,6 +1076,7 @@ Viewer::~Viewer() {
     mStrokeShader.free();
     mOutputMeshWireframeShader.free();
     mOutputMeshShader.free();
+    mLabeledConstraintsMesh_E.free();
     mLabeledMesh_F.free();
     mAlignedConstraintsMesh_F.free();
     mAlignedMesh_F.free();
@@ -2104,6 +2121,7 @@ void Viewer::resetState() {
     mOutputMeshLines = 0;
     mFlowLineFaces = 0;
     mStrokeFaces = 0;
+    mLabeledConstraintsMeshLines = 0;
     mLabeledMeshFaces = 0;
     mAlignedConstraintsMeshFaces = 0;
     mAlignedMeshFaces = 0;
@@ -3083,6 +3101,19 @@ void Viewer::drawContents() {
         nvgEndFrame(mNVGContext);
     };
 
+    drawFunctor[LabeledConstraintsMeshEdges] = [&](uint32_t offset, uint32_t count) {
+        //Edges
+        if (mFBO.samples() == 1) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        }
+        mLabeledConstraintsMesh_E.bind();
+        mLabeledConstraintsMesh_E.setUniform("mvp", Eigen::Matrix4f(proj * view * model));
+        mLabeledConstraintsMesh_E.drawArray(GL_LINES, offset, count);
+        if (mFBO.samples() == 1)
+            glDisable(GL_BLEND);
+    };
+
     drawFunctor[LabeledMesh] = [&](uint32_t offset, uint32_t count) {
 
         mLabeledMesh_F.bind();
@@ -3214,6 +3245,7 @@ void Viewer::drawContents() {
     drawAmount[VertexLabels] = mRes.size();
     drawAmount[ExtractedFaceLabels] = mRes.F_tag.size();
     drawAmount[ExtractedVertexLabels] = mV_extracted.cols();
+    drawAmount[LabeledConstraintsMeshEdges] = mLabeledConstraintsMeshLines;
     drawAmount[LabeledMesh] = mLabeledMeshFaces;
     drawAmount[AlignedConstraintsMesh] = mAlignedConstraintsMeshFaces;
     drawAmount[AlignedMesh] = mAlignedMeshFaces;
@@ -3248,6 +3280,7 @@ void Viewer::drawContents() {
         PositionFieldSingularities,
         OutputMesh,
         OutputMeshWireframe,
+        LabeledConstraintsMeshEdges,
         LabeledMesh,
         AlignedConstraintsMesh,
         AlignedMesh,
@@ -3604,7 +3637,13 @@ bool Viewer::mouseButtonEvent(const Vector2i &p, int button, bool down, int modi
                         labels.emplace(halfedge_index, 1.f);
                     }
                 }
+                mRes.initLabeledConstraintsMeshRend();
+                mLabeledConstraintsMeshLines = mRes.mE_PrepLbMesh_rend.cols();
+                mLabeledConstraintsMesh_E.bind();
+                mLabeledConstraintsMesh_E.uploadAttrib("position", MatrixXf(mRes.mE_PrepLbMesh_rend.block(0, 0, 3, mRes.mE_PrepLbMesh_rend.cols())));
+                mLabeledConstraintsMesh_E.uploadAttrib("color", MatrixXf(mRes.mE_PrepLbMesh_rend.block(3, 0, 3, mRes.mE_PrepLbMesh_rend.cols())));
                 std::cout << "\nChanged label of a half edge: " << halfedge_index << " ; " << (labels[halfedge_index] == 0 ? "wale (green)" : "course (red)") << "\n";
+                repaint();
                 return true;
             }
             if (mAlignPicker->pushed() && down) {

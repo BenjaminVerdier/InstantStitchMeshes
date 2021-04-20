@@ -262,6 +262,7 @@ protected:
     uint32_t mDrawIndex;
 
     /* Stitch Meshing related*/
+    SerializableGLShader mLabeledConstraintsMesh_E;
     SerializableGLShader mLabeledMesh_F;
     SerializableGLShader mAlignedConstraintsMesh_F;
     SerializableGLShader mAlignedMesh_F;
@@ -288,6 +289,7 @@ protected:
         OutputMeshWireframe,
         ExtractedFaceLabels,
         ExtractedVertexLabels,
+        LabeledConstraintsMeshEdges,
         LabeledMesh,
         AlignedConstraintsMesh,
         AlignedMesh,
@@ -329,5 +331,5 @@ protected:
     uint32_t mOutputMeshFaces, mOutputMeshLines;
     uint32_t mFlowLineFaces, mStrokeFaces;
     uint32_t mLabeledMeshFaces, mAlignedMeshFaces, mAlignedMeshLines, mStitchMeshFaces, mStitchMeshLines;
-    uint32_t mAlignedConstraintsMeshFaces;
+    uint32_t mAlignedConstraintsMeshFaces, mLabeledConstraintsMeshLines;
 };

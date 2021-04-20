@@ -120,6 +120,8 @@ public:
     void prepAlignMesh();
     void alignMesh();
     void stitchMeshing();
+    void initLabeledConstraintsMeshRend();
+    void updateLabeledConstraintsMeshRend(int he);
     void convertLabelMesh2Rend();
     void convertAlignConstraintsMesh2Rend();
     void convertAlignMesh2Rend();
@@ -158,6 +160,8 @@ public:
     std::vector<std::vector<uint32_t>> F_tag;
 
     //////////////////////////////////////////////////////////////////////////
+    // labeled mesh constraints
+    MatrixXf mE_PrepLbMesh_rend;
     // labeled mesh
     MatrixXf mV_LbMesh_rend;
     MatrixXu mF_LbMesh_rend;

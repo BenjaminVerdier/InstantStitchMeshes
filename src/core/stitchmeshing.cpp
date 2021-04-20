@@ -208,6 +208,69 @@ cyPoint3f colorConverter(int hexValue)
 	return rgbColor;
 }
 
+void MultiResolutionHierarchy::updateLabeledConstraintsMeshRend(int he_idx)
+{
+	int label = mDual->user_defined_labels[he_idx];
+
+	int ei = he_idx;
+	HE_HalfEdge* he = mPoly->halfedge(he_idx);
+	mE_PrepLbMesh_rend(0, he_idx * 2 + 0) = he->src()->position().x;
+	mE_PrepLbMesh_rend(1, he_idx * 2 + 0) = he->src()->position().y;
+	mE_PrepLbMesh_rend(2, he_idx * 2 + 0) = he->src()->position().z;
+	mE_PrepLbMesh_rend(3, he_idx * 2 + 0) = (label == 0 ? 0 : 1);
+	mE_PrepLbMesh_rend(4, he_idx * 2 + 0) = (label == 0 ? 1 : 0);
+	mE_PrepLbMesh_rend(5, he_idx * 2 + 0) = 0;
+
+	mE_PrepLbMesh_rend(0, he_idx * 2 + 1) = he->dst()->position().x;
+	mE_PrepLbMesh_rend(1, he_idx * 2 + 1) = he->dst()->position().y;
+	mE_PrepLbMesh_rend(2, he_idx * 2 + 1) = he->dst()->position().z;
+	mE_PrepLbMesh_rend(3, he_idx * 2 + 1) = (label == 0 ? 0 : 1);
+	mE_PrepLbMesh_rend(4, he_idx * 2 + 1) = (label == 0 ? 1 : 0);
+	mE_PrepLbMesh_rend(5, he_idx * 2 + 1) = 0;
+
+	he = he->twin();
+	ei = he->index();
+	mE_PrepLbMesh_rend(0, he_idx * 2 + 0) = he->src()->position().x;
+	mE_PrepLbMesh_rend(1, he_idx * 2 + 0) = he->src()->position().y;
+	mE_PrepLbMesh_rend(2, he_idx * 2 + 0) = he->src()->position().z;
+	mE_PrepLbMesh_rend(3, he_idx * 2 + 0) = (label == 0 ? 0 : 1);
+	mE_PrepLbMesh_rend(4, he_idx * 2 + 0) = (label == 0 ? 1 : 0);
+	mE_PrepLbMesh_rend(5, he_idx * 2 + 0) = 0;
+
+	mE_PrepLbMesh_rend(0, he_idx * 2 + 1) = he->dst()->position().x;
+	mE_PrepLbMesh_rend(1, he_idx * 2 + 1) = he->dst()->position().y;
+	mE_PrepLbMesh_rend(2, he_idx * 2 + 1) = he->dst()->position().z;
+	mE_PrepLbMesh_rend(3, he_idx * 2 + 1) = (label == 0 ? 0 : 1);
+	mE_PrepLbMesh_rend(4, he_idx * 2 + 1) = (label == 0 ? 1 : 0);
+	mE_PrepLbMesh_rend(5, he_idx * 2 + 1) = 0;
+}
+
+void MultiResolutionHierarchy::initLabeledConstraintsMeshRend()
+{
+	mE_PrepLbMesh_rend.resize(6, mDual->user_defined_labels.size() * 2);
+	int ei = 0;
+	for (auto l : mDual->user_defined_labels)
+	{
+		int index = l.first;
+		int label = l.second;
+		HE_HalfEdge* he = mPoly->halfedge(index);
+		mE_PrepLbMesh_rend(0, ei * 2 + 0) = he->src()->position().x;
+		mE_PrepLbMesh_rend(1, ei * 2 + 0) = he->src()->position().y;
+		mE_PrepLbMesh_rend(2, ei * 2 + 0) = he->src()->position().z;
+		mE_PrepLbMesh_rend(3, ei * 2 + 0) = (label == 0 ? 0 : 1);
+		mE_PrepLbMesh_rend(4, ei * 2 + 0) = (label == 0 ? 1 : 0);
+		mE_PrepLbMesh_rend(5, ei * 2 + 0) = 0;
+
+		mE_PrepLbMesh_rend(0, ei * 2 + 1) = he->dst()->position().x;
+		mE_PrepLbMesh_rend(1, ei * 2 + 1) = he->dst()->position().y;
+		mE_PrepLbMesh_rend(2, ei * 2 + 1) = he->dst()->position().z;
+		mE_PrepLbMesh_rend(3, ei * 2 + 1) = (label == 0 ? 0 : 1);
+		mE_PrepLbMesh_rend(4, ei * 2 + 1) = (label == 0 ? 1 : 0);
+		mE_PrepLbMesh_rend(5, ei * 2 + 1) = 0;
+		++ei;
+	}
+}
+
 void MultiResolutionHierarchy::convertLabelMesh2Rend()
 {
 	int triNum = 0, quadNum = 0, penNum = 0;
