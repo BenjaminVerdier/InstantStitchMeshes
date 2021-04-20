@@ -385,21 +385,28 @@ void MultiResolutionHierarchy::convertLabelMesh2Rend()
 void MultiResolutionHierarchy::convertAlignConstraintsMesh2Rend()
 {
 	int triNum = 0, quadNum = 0, penNum = 0;
-	for (int fi = 0; fi < mPoly->numFaces(); fi++) {
-		HE_Face* f = mPoly->face(fi);
-		if (f->hole()) continue;
+	for (auto const& a : mDual->user_defined_alignments)
+	{
+		int grp_idx = a.first;
+		for (int i = 0; i < (int)mDual->_groupFaceIdx[grp_idx].size(); i++)
+		{
+			const HE_Face* f = mPoly->face(mDual->_groupFaceIdx[grp_idx][i]);
+			if (f->hole()) continue;
 
-		if (f->NumHalfEdge() == 3) triNum++;
-		else if (f->NumHalfEdge() == 4) quadNum++;
-		else if (f->NumHalfEdge() == 5) penNum++;
+			if (f->NumHalfEdge() == 3) triNum++;
+			else if (f->NumHalfEdge() == 4) quadNum++;
+			else if (f->NumHalfEdge() == 5) penNum++;
+		}
 	}
 
 	int totalVNum = triNum * 3 + quadNum * 4 + penNum * 5;
 
 	mV_PrepAlMesh_rend.resize(3, totalVNum);
+	mV_PrepAlMesh_rend.setZero();
 	mC_PrepAlMesh_rend.resize(3, totalVNum);
+	mC_PrepAlMesh_rend.setZero();
 	mT_PrepAlMesh_rend.resize(2, totalVNum);
- 
+	mT_PrepAlMesh_rend.setZero();
 	int vi = 0;
 	for (int j = 0; j < (int)mDual->_groupFaceIdx.size(); j++)
 	{
@@ -407,7 +414,7 @@ void MultiResolutionHierarchy::convertAlignConstraintsMesh2Rend()
 		{
 			continue;
 		}
-		bool flip = mDual->user_defined_alignments[j] == 0;
+		bool flip = mDual->user_defined_alignments[j] == 1;
 		cyPoint3f c = colorConverter(indexcolors[j % 128]);
 		for (int i = 0; i < (int)mDual->_groupFaceIdx[j].size(); i++)
 		{
@@ -650,26 +657,6 @@ void MultiResolutionHierarchy::convertAlignConstraintsMesh2Rend()
 				mF_PrepAlMesh_rend(2, c++) = viList[4];
 			}
 		}
-	}
-
-	mE_PrepAlMesh_rend.resize(6, mPoly->numHalfEdges() * 2);
-
-	for (int ei = 0; ei < mPoly->numHalfEdges(); ei++)
-	{
-		HE_HalfEdge* he = mPoly->halfedge(ei);
-		mE_PrepAlMesh_rend(0, ei * 2 + 0) = he->src()->position().x;
-		mE_PrepAlMesh_rend(1, ei * 2 + 0) = he->src()->position().y;
-		mE_PrepAlMesh_rend(2, ei * 2 + 0) = he->src()->position().z;
-		mE_PrepAlMesh_rend(3, ei * 2 + 0) = 1e-3;
-		mE_PrepAlMesh_rend(4, ei * 2 + 0) = 1e-3;
-		mE_PrepAlMesh_rend(5, ei * 2 + 0) = 1e-3;
-		   
-		mE_PrepAlMesh_rend(0, ei * 2 + 1) = he->dst()->position().x;
-		mE_PrepAlMesh_rend(1, ei * 2 + 1) = he->dst()->position().y;
-		mE_PrepAlMesh_rend(2, ei * 2 + 1) = he->dst()->position().z;
-		mE_PrepAlMesh_rend(3, ei * 2 + 1) = 1e-3;
-		mE_PrepAlMesh_rend(4, ei * 2 + 1) = 1e-3;
-		mE_PrepAlMesh_rend(5, ei * 2 + 1) = 1e-3;
 	}
 }
 
@@ -919,7 +906,7 @@ void MultiResolutionHierarchy::convertAlignMesh2Rend()
 		mE_AlMesh_rend(3, ei * 2 + 0) = 1e-3;
 		mE_AlMesh_rend(4, ei * 2 + 0) = 1e-3;
 		mE_AlMesh_rend(5, ei * 2 + 0) = 1e-3;
-		   
+
 		mE_AlMesh_rend(0, ei * 2 + 1) = he->dst()->position().x;
 		mE_AlMesh_rend(1, ei * 2 + 1) = he->dst()->position().y;
 		mE_AlMesh_rend(2, ei * 2 + 1) = he->dst()->position().z;

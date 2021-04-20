@@ -237,11 +237,7 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
         g_fs,
         g_geo);
 
-    mAlignedConstraintsMesh_E.init("Shader_E_al",
-        (const char*)shader_lines_vert,
-        (const char*)shader_lines_frag);
-
-    mAlignedConstraintsMesh_F.init("Shader_F_al",
+    mAlignedConstraintsMesh_F.init("Shader_F_prepal",
         g_vs,
         g_fs,
         g_geo);
@@ -508,8 +504,7 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
     mLayers[ExtractedVertexLabels] = new CheckBox(advancedPopup, "Extracted Vertex IDs", layerCB);
 
     mLayers[LabeledMesh] = new CheckBox(advancedPopup, "Labeled mesh (Stitch Meshing)", layerCB);
-    mLayers[AlignedConstraintsMesh] = new CheckBox(advancedPopup, "Aligned mesh (Stitch Meshing)", layerCB);
-    mLayers[AlignedConstraintsMeshEdges] = new CheckBox(advancedPopup, "Aligned mesh edges (Stitch Meshing)", layerCB);
+    mLayers[AlignedConstraintsMesh] = new CheckBox(advancedPopup, "Aligned mesh - Constraints (Stitch Meshing)", layerCB);
     mLayers[AlignedMesh] = new CheckBox(advancedPopup, "Aligned mesh (Stitch Meshing)", layerCB);
     mLayers[AlignedMeshEdges] = new CheckBox(advancedPopup, "Aligned mesh edges (Stitch Meshing)", layerCB);
     mLayers[StitchMesh] = new CheckBox(advancedPopup, "Stitch mesh (Stitch Meshing)", layerCB);
@@ -685,7 +680,6 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
             mLayers[OutputMeshWireframe]->setChecked(false);
             mLayers[LabeledMesh]->setChecked(false);
             mLayers[AlignedConstraintsMesh]->setChecked(false);
-            mLayers[AlignedConstraintsMeshEdges]->setChecked(false);
             mLayers[AlignedMesh]->setChecked(false);
             mLayers[AlignedMeshEdges]->setChecked(false);
             mLayers[StitchMesh]->setChecked(false);
@@ -911,7 +905,6 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
             mLayers[LabeledMesh]->setEnabled(true);
             mLayers[LabeledMesh]->setChecked(true);
             mLayers[AlignedConstraintsMesh]->setChecked(false);
-            mLayers[AlignedConstraintsMeshEdges]->setChecked(false);
             mLayers[AlignedMesh]->setChecked(false);
             mLayers[AlignedMeshEdges]->setChecked(false);
             mLayers[StitchMeshEdges]->setChecked(false);
@@ -933,7 +926,6 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
             mRes.prepAlignMesh();
             mAlignPicker->setEnabled(true);
             mLayers[AlignedConstraintsMesh]->setChecked(true);
-            mLayers[AlignedConstraintsMeshEdges]->setChecked(true);
         }
         catch (const std::exception& e) {
             new MessageDialog(this, MessageDialog::Type::Warning, "Error", e.what());
@@ -969,7 +961,6 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
             mLayers[AlignedMeshEdges]->setEnabled(true);
             mLayers[LabeledMesh]->setChecked(false);
             mLayers[AlignedConstraintsMesh]->setChecked(false);
-            mLayers[AlignedConstraintsMeshEdges]->setChecked(false);
             mLayers[AlignedMesh]->setChecked(true);
             mLayers[AlignedMeshEdges]->setChecked(true);
             mLayers[StitchMeshEdges]->setChecked(false);
@@ -1071,7 +1062,6 @@ Viewer::~Viewer() {
     mOutputMeshShader.free();
     mLabeledMesh_F.free();
     mAlignedConstraintsMesh_F.free();
-    mAlignedConstraintsMesh_E.free();
     mAlignedMesh_F.free();
     mAlignedMesh_E.free();
     mStitchMeshing_F.free();
@@ -2116,7 +2106,6 @@ void Viewer::resetState() {
     mStrokeFaces = 0;
     mLabeledMeshFaces = 0;
     mAlignedConstraintsMeshFaces = 0;
-    mAlignedConstraintsMeshLines = 0;
     mAlignedMeshFaces = 0;
     mAlignedMeshLines = 0;
     mStitchMeshFaces = 0;
@@ -2169,8 +2158,6 @@ void Viewer::resetState() {
     mLayers[LabeledMesh]->setEnabled(hasData);
     mLayers[AlignedConstraintsMesh]->setChecked(false);
     mLayers[AlignedConstraintsMesh]->setEnabled(hasData);
-    mLayers[AlignedConstraintsMeshEdges]->setChecked(false);
-    mLayers[AlignedConstraintsMeshEdges]->setEnabled(hasData);
     mLayers[AlignedMesh]->setChecked(false);
     mLayers[AlignedMesh]->setEnabled(hasData);
     mLayers[AlignedMeshEdges]->setChecked(false);
@@ -3140,19 +3127,6 @@ void Viewer::drawContents() {
         glDisable(GL_POLYGON_OFFSET_FILL);
     };
 
-    drawFunctor[AlignedConstraintsMeshEdges] = [&](uint32_t offset, uint32_t count) {
-        //Edges
-        if (mFBO.samples() == 1) {
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        }
-        mAlignedConstraintsMesh_E.bind();
-        mAlignedConstraintsMesh_E.setUniform("mvp", Eigen::Matrix4f(proj * view * model));
-        mAlignedConstraintsMesh_E.drawArray(GL_LINES, offset, count);
-        if (mFBO.samples() == 1)
-            glDisable(GL_BLEND);
-    };
-
     drawFunctor[AlignedMesh] = [&](uint32_t offset, uint32_t count) {
 
         mAlignedMesh_F.bind();
@@ -3241,6 +3215,7 @@ void Viewer::drawContents() {
     drawAmount[ExtractedFaceLabels] = mRes.F_tag.size();
     drawAmount[ExtractedVertexLabels] = mV_extracted.cols();
     drawAmount[LabeledMesh] = mLabeledMeshFaces;
+    drawAmount[AlignedConstraintsMesh] = mAlignedConstraintsMeshFaces;
     drawAmount[AlignedMesh] = mAlignedMeshFaces;
     drawAmount[AlignedMeshEdges] = mAlignedMeshLines;
     drawAmount[StitchMesh] = mStitchMeshFaces;
@@ -3274,6 +3249,7 @@ void Viewer::drawContents() {
         OutputMesh,
         OutputMeshWireframe,
         LabeledMesh,
+        AlignedConstraintsMesh,
         AlignedMesh,
         AlignedMeshEdges,
         StitchMesh,
@@ -3710,17 +3686,12 @@ bool Viewer::mouseButtonEvent(const Vector2i &p, int button, bool down, int modi
                 mRes.convertAlignConstraintsMesh2Rend();
                 // write to render buffer
                 mAlignedConstraintsMeshFaces = mRes.mF_PrepAlMesh_rend.cols();
-                mAlignedConstraintsMeshLines = mRes.mE_PrepAlMesh_rend.cols();
 
                 mAlignedConstraintsMesh_F.bind();
                 mAlignedConstraintsMesh_F.uploadAttrib("position", mRes.mV_PrepAlMesh_rend);
                 mAlignedConstraintsMesh_F.uploadAttrib("tex_coord", mRes.mT_PrepAlMesh_rend);
                 mAlignedConstraintsMesh_F.uploadAttrib("color", mRes.mC_PrepAlMesh_rend);
                 mAlignedConstraintsMesh_F.uploadIndices(mRes.mF_PrepAlMesh_rend);
-
-                mAlignedConstraintsMesh_E.bind();
-                mAlignedConstraintsMesh_E.uploadAttrib("position", MatrixXf(mRes.mE_PrepAlMesh_rend.block(0, 0, 3, mRes.mE_PrepAlMesh_rend.cols())));
-                mAlignedConstraintsMesh_E.uploadAttrib("color", MatrixXf(mRes.mE_PrepAlMesh_rend.block(3, 0, 3, mRes.mE_PrepAlMesh_rend.cols())));
                 repaint();
                 return true;
             }
