@@ -3637,7 +3637,7 @@ bool Viewer::mouseButtonEvent(const Vector2i &p, int button, bool down, int modi
                         labels.emplace(halfedge_index, 1.f);
                     }
                 }
-                mRes.initLabeledConstraintsMeshRend();
+                mRes.updateLabeledConstraintsMeshRend(halfedge_index);
                 mLabeledConstraintsMeshLines = mRes.mE_PrepLbMesh_rend.cols();
                 mLabeledConstraintsMesh_E.bind();
                 mLabeledConstraintsMesh_E.uploadAttrib("position", MatrixXf(mRes.mE_PrepLbMesh_rend.block(0, 0, 3, mRes.mE_PrepLbMesh_rend.cols())));
