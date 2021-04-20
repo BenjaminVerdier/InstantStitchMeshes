@@ -11,7 +11,7 @@ The reason for this is that RIM is an extension of IM to hex-dominant meshes, an
 Compiling from scratch requires CMake and a recent version of XCode on Mac,
 Visual Studio 2015 on Windows. This has not been tested on Linux.
 
-First, install [Gurobi](https://www.gurobi.com/). The version used for testing was 7.5.2, available [here (Windows)](https://packages.gurobi.com/7.5/Gurobi-7.5.2-win32.msi) and [here (Mac)](https://packages.gurobi.com/7.5/gurobi7.5.2_mac64.pkg). Windows needs the 32 bits version. 
+First, install [Gurobi](https://www.gurobi.com/). The version used for testing was 7.5.2, available [here (Windows)](https://packages.gurobi.com/7.5/Gurobi-7.5.2-win32.msi) and [here (Mac)](https://packages.gurobi.com/7.5/gurobi7.5.2_mac64.pkg). Windows needs the 32 bits version.
 
 On MacOS, compiling should be straightforward:
 
@@ -20,10 +20,10 @@ On MacOS, compiling should be straightforward:
     mkdir build && cd build
     cmake ..
     make -j 4
-    
+
 Note that some further adjustments in CmakeList.txt will be needed for linking Gurobi library before compiling: line ```197```
 
-    optimized gurobi_c++ 
+    optimized gurobi_c++
     debug gurobi_c++
 
 
@@ -50,12 +50,13 @@ Clicking the left mouse button and dragging rotates the object; right-dragging
 
 To get the Stitch Meshing part to work, there needs to be no polygons with more than 4 sides. To implement this, check the "Pure Quads" checkbox in the "Export" menu to divide every polygon into quads through their center, or use the "Split n-gons" buttons to split pentagons and up into triangles/quads through their flatest angle.
 
-Once the mesh is ready, use "Prep Label" to compute the polyhedron structure used by the Stitch Meshing code. After this, you can select the left brush tool above to define certain labels on certain edges: Left click to make it a Wale edge, right-click to make it a Course edge.
+Once the mesh is ready, use "Prep Label" to compute the polyhedron structure used by the Stitch Meshing code. After this, you can select the first brush tool above to define certain labels on certain edges: Left click to make it a Wale edge, right-click to make it a Course edge.
 Note: Those constraints are satisfied if possible. If there is an impossibility the solver will most likely ignore one or more of those constraints.
 
 To label the entire mesh, click "Label". This will assign Course (red) and Wale (green) labels to the mesh elements, splitting and rearranging as necessary.
 
-Use the right brush tool above to select the alignment picking tool. Click on a face to change the course direction of the row it's in. (WIP: need visual feedback)
+Use the second brush tool above to select the alignment picking tool. Click on a face to change the course direction of the row it's in. There is no particular rule for determining in advance which direction the arrow will point towards, but right-click will always be one direction and left-click will always be the other.
+
 To align, click "Align". This will define a Course direction for every row.
 
 To compute the final stitch mesh, click "Stitch Mesh". This will split all elements into quads through their respective centers.
