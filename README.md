@@ -1,3 +1,6 @@
+This repository is a project for CS591C1 (Spring 2021).
+Team members are Xingjian (Jessie) Han and Benjamin Verdier.
+
 # Instant Stitch Meshes
 
 A combination of [Stitch Meshing](https://github.com/kuiwuchn/stitchMeshing) and [Instant Meshes](https://github.com/wjakob/instant-meshes) (IM).
