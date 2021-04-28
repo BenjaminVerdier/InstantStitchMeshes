@@ -1480,7 +1480,13 @@ void DualGraph::gurobiSolver(std::string pFilename)
 				std::cout << "ERROR: shouldn't be here!\n";
 			}
 		}
-
+		/*
+		===========================================================
+		====================== CS591 related ======================
+		===========================================================
+		This bit of code adds the per-half-edge labeling constraints
+		defined	by the user to the set of constraints.
+		*/
 		for (auto const& l : user_defined_labels)
 		{
 			HE_HalfEdge* he0 = _poly->halfedge(l.first);
@@ -2276,6 +2282,13 @@ void DualGraph::waleMismatchSolver()
 			model.addConstr(grbVars[gi * 2 + 0] + grbVars[gi * 2 + 1], GRB_EQUAL, 1, c);
 		}
 
+		/*
+		===========================================================
+		====================== CS591 related ======================
+		===========================================================
+		This bit of code adds the per-row alignment constraints defined
+		by the user to the set of constraints.
+		*/
 		for (auto const& a : user_defined_alignments)
 		{
 			int gi = a.first;

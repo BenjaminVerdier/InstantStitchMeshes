@@ -210,6 +210,13 @@ cyPoint3f colorConverter(int hexValue)
 
 void MultiResolutionHierarchy::updateLabeledConstraintsMeshRend(int he_idx)
 {
+	/*
+	===========================================================
+	====================== CS591 related ======================
+	===========================================================
+	This method modifies the shaders to display the user-defined
+	labeling constraints.
+	*/
 	int label = mDual->user_defined_labels[he_idx];
 
 	int ei = he_idx;
@@ -444,6 +451,13 @@ void MultiResolutionHierarchy::convertLabelMesh2Rend()
 
 void MultiResolutionHierarchy::convertAlignConstraintsMesh2Rend()
 {
+	/*
+	===========================================================
+	====================== CS591 related ======================
+	===========================================================
+	This method modifies the shaders to display the user-defined
+	alignment constraints.
+	*/
 	int triNum = 0, quadNum = 0, penNum = 0;
 	for (auto const& a : mDual->user_defined_alignments)
 	{

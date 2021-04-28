@@ -1101,14 +1101,15 @@ double safe_acos(double value) {
 }
 
 
-bool split_face2D(std::vector<std::pair<uint32_t, uint32_t>> &face, MatrixXf &V, std::vector<std::vector<std::pair<uint32_t, uint32_t>>> &result) {
-	/*
-	We just do the first part:
-	1) test all potential edges in the n-gon, store their 'energy' (aka if it aligns well with the rosy field or not) in a tuple
-	2) get the edge with the lowest energy
-	3) split the n-gon along that edge
-	4) repeat until all resulting n-gons are triangles or quads, store those in result
-	*/
+bool split_face2D(std::vector<std::pair<uint32_t, uint32_t>> &face, MatrixXf &V, std::vector<std::vector<std::pair<uint32_t, uint32_t>>> &result)
+{
+    /*
+    ===========================================================
+    ====================== CS591 related ======================
+    ===========================================================
+    This function splits a polygon of more than 4 sides into
+    several polygons of 3 to 4 sides.
+    */
 
 	//If we split a face and it's not a quad or a triangle, we store it here
 	std::vector<std::vector<std::pair<uint32_t, uint32_t>>> intermediate_faces;
@@ -1152,7 +1153,7 @@ bool split_face2D(std::vector<std::pair<uint32_t, uint32_t>> &face, MatrixXf &V,
 		sort(vs_rank.begin(), vs_rank.end());
 		int j = std::get<1>(vs_rank[vs_rank.size() - 1]);
 
-		// We pick the other one through some magic
+		// We pick the other vertex
 		vs_rank.clear();
 
 		int32_t pre = (j - 1 + vertices.size()) % vertices.size(), post = (j + 1) % vertices.size();

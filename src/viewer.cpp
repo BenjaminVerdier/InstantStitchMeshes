@@ -3579,6 +3579,14 @@ bool Viewer::mouseButtonEvent(const Vector2i &p, int button, bool down, int modi
     if (!Screen::mouseButtonEvent(p, button, down, modifiers)) {
         if (toolActive()) {
             if (mLabelPicker->pushed() && down) {
+                /*
+                ===========================================================
+                ====================== CS591 related ======================
+                ===========================================================
+                This bit of code finds where the user clicked and finds the
+                closest half edge. It then adds/changes the constraint
+                depending on the button pressed by the user.
+                */
                 //Get the 3d point we clicked
                 Eigen::Matrix4f model, view, proj;
                 computeCameraMatrices(model, view, proj);
@@ -3647,6 +3655,14 @@ bool Viewer::mouseButtonEvent(const Vector2i &p, int button, bool down, int modi
                 return true;
             }
             if (mAlignPicker->pushed() && down) {
+                /*
+                ===========================================================
+                ====================== CS591 related ======================
+                ===========================================================
+                This bit of code finds where the user clicked and finds
+                which row it corresponds to. It then adds/changes the
+                constraint depending on the button pressed by the user.
+                */
                 //Get the 3d point we clicked
                 Eigen::Matrix4f model, view, proj;
                 computeCameraMatrices(model, view, proj);
