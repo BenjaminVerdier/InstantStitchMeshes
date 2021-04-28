@@ -522,10 +522,15 @@ extract_graph(const MultiResolutionHierarchy &mRes, bool extrinsic, int rosy, in
     cout << "done. (took " << timeString(timer.reset()) << ")" << endl;
 }
 
-void extract_faces(std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
+void extract_faces(MultiResolutionHierarchy& mRes, std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
                    MatrixXf &N, MatrixXf &Nf, MatrixXu &F, int posy,
                    Float scale, std::set<uint32_t> &crease, bool fill_holes,
                    bool pure_quad, BVH *bvh, int smooth_iterations, bool split_ngons) {
+
+    //getting things ready for stitch meshing code
+    mRes.mV_tag = O;
+    mRes.mN_tag = N;
+    mRes.F_tag.clear();
 
     uint32_t nF = 0, nV = O.cols(), nV_old = O.cols();
     F.resize(posy, posy == 4 ? O.cols() : O.cols()*2);
@@ -678,6 +683,9 @@ void extract_faces(std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
 					for (auto res : result_tri_quads)
 					{
 						stats[res.size()]++;
+                        std::vector<uint32_t> face;
+                        for (auto v : res) face.push_back(v.first);
+                        mRes.F_tag.push_back(std::move(face));
 						std::vector<uint32_t> irregular = fill_face(res);
 						if (!irregular.empty())
 							irregular_faces.push_back(std::move(irregular));
@@ -687,6 +695,9 @@ void extract_faces(std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
 				else
 				{
 					stats[result.size()]++;
+                    std::vector<uint32_t> face;
+                    for (auto v : result) face.push_back(v.first);
+                    mRes.F_tag.push_back(std::move(face));
 					std::vector<uint32_t> irregular = fill_face(result);
 					if (!irregular.empty())
 						irregular_faces.push_back(std::move(irregular));
@@ -884,6 +895,16 @@ void extract_faces(std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
             for (uint32_t i=0; i<f.size(); ++i)
                 F.col(f[i]) << ecs[2*i+1], ecs[(2*i+2)%ecs.size()], ecs[(2*i+3)%ecs.size()], idx_fc;
         }
+        mRes.mV_tag = O;
+        mRes.mV_tag.conservativeResize(3, nV);
+        mRes.mN_tag = N;
+        mRes.mN_tag.conservativeResize(3, nV);
+        mRes.F_tag.clear();
+        for (uint32_t i = 0; i < nF; ++i) {
+            Vector4u f = F.col(i);
+            std::vector<uint32_t> face{f[0],f[1],f[2],f[3]};
+            mRes.F_tag.push_back(std::move(face));
+        }
         cout << "done. (took " << timeString(timer.reset()) << ")" << endl;
     }
 
@@ -1038,6 +1059,8 @@ void extract_faces(std::vector<std::vector<TaggedLink> > &adj, MatrixXf &O,
     V_vec[0].swap(O);
     V_vec[1].swap(N);
     F_vec[0].swap(Nf);
+
+
     cout << "done. (took " << timeString(timer.value()) << ")" << endl;
 
 }
@@ -1078,14 +1101,15 @@ double safe_acos(double value) {
 }
 
 
-bool split_face2D(std::vector<std::pair<uint32_t, uint32_t>> &face, MatrixXf &V, std::vector<std::vector<std::pair<uint32_t, uint32_t>>> &result) {
-	/*
-	We just do the first part:
-	1) test all potential edges in the n-gon, store their 'energy' (aka if it aligns well with the rosy field or not) in a tuple
-	2) get the edge with the lowest energy
-	3) split the n-gon along that edge
-	4) repeat until all resulting n-gons are triangles or quads, store those in result
-	*/
+bool split_face2D(std::vector<std::pair<uint32_t, uint32_t>> &face, MatrixXf &V, std::vector<std::vector<std::pair<uint32_t, uint32_t>>> &result)
+{
+    /*
+    ===========================================================
+    ====================== CS591 related ======================
+    ===========================================================
+    This function splits a polygon of more than 4 sides into
+    several polygons of 3 to 4 sides.
+    */
 
 	//If we split a face and it's not a quad or a triangle, we store it here
 	std::vector<std::vector<std::pair<uint32_t, uint32_t>>> intermediate_faces;
@@ -1129,7 +1153,7 @@ bool split_face2D(std::vector<std::pair<uint32_t, uint32_t>> &face, MatrixXf &V,
 		sort(vs_rank.begin(), vs_rank.end());
 		int j = std::get<1>(vs_rank[vs_rank.size() - 1]);
 
-		// We pick the other one through some magic
+		// We pick the other vertex
 		vs_rank.clear();
 
 		int32_t pre = (j - 1 + vertices.size()) % vertices.size(), post = (j + 1) % vertices.size();

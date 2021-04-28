@@ -112,6 +112,12 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/ext/half
   # Resource file
   ${CMAKE_CURRENT_BINARY_DIR}
+  # Gurobi
+  "C:/gurobi752/win32/include"
+)
+
+link_directories(
+	"C:/gurobi752/win32/lib"
 )
 
 # Run bin2c on resource files
@@ -122,7 +128,9 @@ set(PNG_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/resources/scare.png
   ${CMAKE_CURRENT_SOURCE_DIR}/resources/sing_dir.png
   ${CMAKE_CURRENT_SOURCE_DIR}/resources/sing_pos.png
-  ${CMAKE_CURRENT_SOURCE_DIR}/resources/instantmeshes.png)
+  ${CMAKE_CURRENT_SOURCE_DIR}/resources/instantmeshes.png
+  ${CMAKE_CURRENT_SOURCE_DIR}/resources/arrow.png
+  ${CMAKE_CURRENT_SOURCE_DIR}/resources/uvTexture.png)
 file(GLOB FRAG_FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/*.frag")
 file(GLOB VERT_FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/*.vert")
 file(GLOB GEO_FILES  "${CMAKE_CURRENT_SOURCE_DIR}/resources/*.geo")
@@ -170,10 +178,24 @@ add_executable(InstantMeshes MACOSX_BUNDLE
   src/cleanup.h src/cleanup.cpp
   src/dedge.h src/dedge.cpp
   ext/rply/rply.c
+  src/core/cyPoint.h
+  src/core/dual.cpp src/core/dual.h
+  src/core/HE_Face.cpp src/core/HE_Face.h
+  src/core/HE_Halfedge.cpp src/core/HE_Halfedge.h
+  src/core/HE_Polyhedron.cpp src/core/HE_Polyhedron.h
+  src/core/HE_Vertex.cpp src/core/HE_Vertex.h
+  src/core/mesh_io.cpp
+  src/core/polyhedron_iterators.h
+  src/core/stitchmeshing.cpp
+  src/core/HE_Vertex.cpp src/core/HE_Vertex.h
+  src/core/util.cpp src/core/util.h
+  src/meshio.cpp src/meshio.h
   ${EXTRA_SOURCE})
 
 add_definitions(${NANOGUI_EXTRA_DEFS})
-target_link_libraries(InstantMeshes tbb_static nanogui ${NANOGUI_EXTRA_LIBS})
+target_link_libraries(InstantMeshes tbb_static nanogui gurobi75 ${NANOGUI_EXTRA_LIBS}
+									optimized gurobi_c++mt2015
+									debug gurobi_c++mtd2015)
 
 set_target_properties(InstantMeshes PROPERTIES OUTPUT_NAME "Instant Meshes")
 
@@ -198,3 +220,25 @@ endif()
 if (UNIX AND NOT ${U_CMAKE_BUILD_TYPE} MATCHES DEBUG)
   add_custom_command(TARGET InstantMeshes POST_BUILD COMMAND strip $<TARGET_FILE:InstantMeshes>)
 endif()
+
+if (WIN32)
+	# Quench some warnings on MSVC
+	if (MSVC)
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/arrow.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/uvTexture.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/arrow.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Release)
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/uvTexture.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Release)
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/arrow.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Debug)
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/uvTexture.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Debug)
+	endif()
+endif()
+
+ADD_CUSTOM_TARGET( datasets ALL  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/datasets ${CMAKE_CURRENT_BINARY_DIR}/datasets )
+
+add_dependencies(InstantMeshes datasets)

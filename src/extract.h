@@ -36,7 +36,7 @@ extract_graph(const MultiResolutionHierarchy &mRes, bool extrinsic, int rosy, in
               bool remove_unnecessary_triangles = true,
               bool snap_vertices = true);
 
-extern void extract_faces(std::vector<std::vector<TaggedLink> > &adj,
+extern void extract_faces(MultiResolutionHierarchy& mRes, std::vector<std::vector<TaggedLink> > &adj,
                           MatrixXf &O, MatrixXf &N, MatrixXf &Nf, MatrixXu &F,
                           int posy, Float scale, std::set<uint32_t> &crease,
                           bool fill_holes = true, bool pure_quad = true,

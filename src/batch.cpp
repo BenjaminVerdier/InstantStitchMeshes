@@ -204,7 +204,7 @@ void batch_process(const std::string &input, const std::string &output,
                   crease_in, crease_out, deterministic);
 
     MatrixXu F_extr;
-    extract_faces(adj_extr, O_extr, N_extr, Nf_extr, F_extr, posy,
+    extract_faces(mRes, adj_extr, O_extr, N_extr, Nf_extr, F_extr, posy,
             mRes.scale(), crease_out, true, pure_quad, bvh, smooth_iter);
     cout << "Extraction is done. (total time: " << timeString(timer.reset()) << ")" << endl;
 

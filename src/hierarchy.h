@@ -16,6 +16,9 @@
 
 #include "adjacency.h"
 
+#include "core/HE_Polyhedron.h"
+#include "core/dual.h"
+
 class Serializer;
 
 extern AdjacencyMatrix
@@ -106,6 +109,26 @@ public:
     bool frozenO() const { return mFrozenO; }
     void setFrozenQ(bool frozen) { mFrozenQ = frozen; }
     void setFrozenO(bool frozen) { mFrozenO = frozen; }
+
+
+
+    //////////////////////////////////////////////////////////////////////////
+    // stitch meshing 
+    void convert2Poly();
+    void prepLabelMesh();
+    void labelMesh(bool pFlip);
+    void prepAlignMesh();
+    void alignMesh();
+    void stitchMeshing();
+    void initLabeledConstraintsMeshRend();
+    void updateLabeledConstraintsMeshRend(int he);
+    void convertLabelMesh2Rend();
+    void convertAlignConstraintsMesh2Rend();
+    void convertAlignMesh2Rend();
+    void convertStitchMesh2Rend();
+    void removeQuadDecInc();
+    void exportResult(char* path);
+
 public:
     MatrixXu mF;
     VectorXu mE2E;
@@ -128,4 +151,56 @@ public:
     int mIterationsQ;
     int mIterationsO;
     uint32_t mTotalSize;
+
+
+    //////////////////////////////////////////////////////////////////////////
+    // quad mesh stuff for stitch meshing
+    MatrixXf mV_tag;
+    MatrixXf mN_tag;
+    std::vector<std::vector<uint32_t>> F_tag;
+
+    //////////////////////////////////////////////////////////////////////////
+    // labeled mesh constraints
+    MatrixXf mE_PrepLbMesh_rend;
+    // labeled mesh
+    MatrixXf mV_LbMesh_rend;
+    MatrixXu mF_LbMesh_rend;
+    MatrixXf mE_LbMesh_rend;
+    MatrixXf mT_LbMesh_rend;
+
+    //////////////////////////////////////////////////////////////////////////
+    // alignement constraints mesh 
+    MatrixXf mV_PrepAlMesh_rend;
+    MatrixXu mF_PrepAlMesh_rend;
+    MatrixXf mE_PrepAlMesh_rend;
+    MatrixXf mT_PrepAlMesh_rend;
+    MatrixXf mC_PrepAlMesh_rend;
+
+    //////////////////////////////////////////////////////////////////////////
+    // aligned mesh 
+    MatrixXf mV_AlMesh_rend;
+    MatrixXu mF_AlMesh_rend;
+    MatrixXf mE_AlMesh_rend;
+    MatrixXf mT_AlMesh_rend;
+    MatrixXf mC_AlMesh_rend;
+
+    //////////////////////////////////////////////////////////////////////////
+    // stitch mesh 
+    MatrixXf mV_StMesh_rend;
+    MatrixXu mF_StMesh_rend;
+    MatrixXf mE_StMesh_rend;
+    MatrixXf mT_StMesh_rend;
+    MatrixXf mC_StMesh_rend;
+
+    //////////////////////////////////////////////////////////////////////////
+    // stitch meshing 
+
+    HE_Polyhedron* mPoly;
+    DualGraph* mDual;
+
+    HE_Polyhedron* mSubPoly;
+    DualGraph* mSubDual;
+
+    HE_Polyhedron* mCleanPoly;
+    DualGraph* mCleanDual;
 };

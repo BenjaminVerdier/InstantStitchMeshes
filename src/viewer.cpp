@@ -131,8 +131,216 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
         (const char *)shader_quadmesh_frag);
 
     mOutputMeshWireframeShader.init("output_mesh_wireframe_shader",
-        (const char *)shader_lines_vert,
-        (const char *)shader_lines_frag);
+        (const char*)shader_lines_vert,
+        (const char*)shader_lines_frag);
+
+
+
+    mStitchMeshing_E.init("Shader_E_local",
+        (const char*)shader_lines_vert,
+        (const char*)shader_lines_frag);
+
+    static std::string g_vs =
+        "#version 330\n"
+        "in vec3 position;\n"
+        "in vec3 normal;\n"
+        "in vec2 tex_coord;\n"
+        "in vec3 color;\n"
+        "out vec3 normal_geo;\n"
+        "out vData{\n"
+        "	vec3 normal;\n"
+        "	vec2 tex_coord;\n"
+        "	vec3 color;\n"
+        "} geo;\n"
+        "void main() {\n"
+        "	gl_Position = vec4(position, 1.0);\n"
+        "	geo.normal = normal;\n"
+        "	geo.tex_coord = tex_coord;\n"
+        "	geo.color = color;\n"
+        "}\n"
+        ;
+
+    static std::string g_geo =
+        "#version 330\n"
+        "layout(triangles) in;\n"
+        "layout(triangle_strip, max_vertices = 3) out;\n"
+        "uniform vec3 light_position;\n"
+        "uniform mat4 proj, model, view;\n"
+        "uniform vec4 split;\n"
+        "in vData{\n"
+        "	vec3 normal;\n"
+        "	vec2 tex_coord;\n"
+        "	vec3 color;\n"
+        "} vertices[];\n"
+        "out fData{\n"
+        "	vec3 to_eye;\n"
+        "	vec3 to_light;\n"
+        "	vec3 normal;\n"
+        "	vec2 tex_coord;\n"
+        "	vec3 color;\n"
+        "} frag;\n"
+        "void main() {\n"
+        "	if (dot(split, gl_in[0].gl_Position) < 0 ||\n"
+        "		dot(split, gl_in[1].gl_Position) < 0 ||\n"
+        "		dot(split, gl_in[2].gl_Position) < 0)\n"
+        "		return;\n"
+        "	frag.normal = normalize(cross(\n"
+        "		(view * (model * (gl_in[1].gl_Position - gl_in[0].gl_Position))).xyz,\n"
+        "		(view * (model * (gl_in[2].gl_Position - gl_in[0].gl_Position))).xyz));\n"
+        "	for (int i = 0; i < 3; ++i) {\n"
+        "		vec4 pos_camera = view * (model * gl_in[i].gl_Position);\n"
+        "		gl_Position = proj * pos_camera;\n"
+        "		frag.to_light = (view * vec4(light_position, 1.0)).xyz - pos_camera.xyz;\n"
+        "		frag.to_eye = -pos_camera.xyz;\n"
+        "		frag.tex_coord = vertices[i].tex_coord;\n"
+        "		frag.color = vertices[i].color;\n"
+        "		EmitVertex();\n"
+        "	}\n"
+        "	EndPrimitive();\n"
+        "}\n"
+        ;
+
+    static std::string g_fs =
+        "#version 330\n"
+        "precision lowp float;\n"
+        "uniform vec4 specular_color;\n"
+        "uniform sampler2D arrowTexture;\n"
+        "in fData{\n"
+        "	vec3 to_eye;\n"
+        "	vec3 to_light;\n"
+        "	vec3 normal;\n"
+        "	vec2 tex_coord;\n"
+        "	vec3 color;\n"
+        "} frag;\n"
+        "out vec4 outColor;\n"
+        "void main() {\n"
+        "	vec4 Kd = vec4(frag.color * texture( arrowTexture, frag.tex_coord ).x,1);\n"
+        "	vec4 Ks = specular_color;\n"
+        "	vec4 Ka = Kd * 0.2;\n"
+        "	vec3 to_light = normalize(frag.to_light);\n"
+        "	vec3 to_eye = normalize(frag.to_eye);\n"
+        "	vec3 normal = normalize(frag.normal);\n"
+        "	vec3 refl = reflect(-to_light, normal);\n"
+        "	if (dot(to_light, normal) <= 0)\n"
+        "		discard;\n"
+        "	float diffuse_factor = max(0.0, dot(to_light, normal));\n"
+        "	float specular_factor = pow(max(dot(to_eye, refl), 0.0), 10.0);\n"
+        "	outColor = Ka + Kd*diffuse_factor + Ks*specular_factor;\n"
+        "//	outColor = vec4(frag.tex_coord.x, frag.tex_coord.y, 0, 1);\n"
+        "	//outColor.xyz = texture( arrowTexture, frag.tex_coord ).xyz;\n"
+        " //outColor = vec4( texture( arrowTexture, frag.tex_coord ).x * 255);\n"
+        "}\n"
+        ;
+
+    mStitchMeshing_F.init("Shader_F_St",
+        g_vs,
+        g_fs,
+        g_geo);
+
+    mAlignedConstraintsMesh_F.init("Shader_F_prepal",
+        g_vs,
+        g_fs,
+        g_geo);
+
+    mLabeledConstraintsMesh_E.init("Shader_E_al",
+        (const char*)shader_lines_vert,
+        (const char*)shader_lines_frag);
+
+    mAlignedMesh_E.init("Shader_E_al",
+        (const char*)shader_lines_vert,
+        (const char*)shader_lines_frag);
+
+    mAlignedMesh_F.init("Shader_F_al",
+        g_vs,
+        g_fs,
+        g_geo);
+
+    static std::string g_lb_vs =
+        "#version 330\n"
+        "in vec3 position;\n"
+        "in vec3 normal;\n"
+        "in vec2 tex_coord;\n"
+        "out vec3 normal_geo;\n"
+        "out vData{\n"
+        "	vec3 normal;\n"
+        "	vec2 tex_coord;\n"
+        "} geo;\n"
+        "void main() {\n"
+        "	gl_Position = vec4(position, 1.0);\n"
+        "	geo.normal = normal;\n"
+        "	geo.tex_coord = tex_coord;\n"
+        "}\n"
+        ;
+
+    static std::string g_lb_geo =
+        "#version 330\n"
+        "layout(triangles) in;\n"
+        "layout(triangle_strip, max_vertices = 3) out;\n"
+        "uniform vec3 light_position;\n"
+        "uniform mat4 proj, model, view;\n"
+        "uniform vec4 split;\n"
+        "in vData{\n"
+        "	vec3 normal;\n"
+        "	vec2 tex_coord;\n"
+        "} vertices[];\n"
+        "out fData{\n"
+        "	vec3 to_eye;\n"
+        "	vec3 to_light;\n"
+        "	vec3 normal;\n"
+        "	vec2 tex_coord;\n"
+        "} frag;\n"
+        "void main() {\n"
+        "	if (dot(split, gl_in[0].gl_Position) < 0 ||\n"
+        "		dot(split, gl_in[1].gl_Position) < 0 ||\n"
+        "		dot(split, gl_in[2].gl_Position) < 0)\n"
+        "		return;\n"
+        "	frag.normal = normalize(cross(\n"
+        "		(view * (model * (gl_in[1].gl_Position - gl_in[0].gl_Position))).xyz,\n"
+        "		(view * (model * (gl_in[2].gl_Position - gl_in[0].gl_Position))).xyz));\n"
+        "	for (int i = 0; i < 3; ++i) {\n"
+        "		vec4 pos_camera = view * (model * gl_in[i].gl_Position);\n"
+        "		gl_Position = proj * pos_camera;\n"
+        "		frag.to_light = (view * vec4(light_position, 1.0)).xyz - pos_camera.xyz;\n"
+        "		frag.to_eye = -pos_camera.xyz;\n"
+        "		frag.tex_coord = vertices[i].tex_coord;\n"
+        "		EmitVertex();\n"
+        "	}\n"
+        "	EndPrimitive();\n"
+        "}\n"
+        ;
+
+    static std::string g_lb_fs =
+        "#version 330\n"
+        "precision lowp float;\n"
+        "uniform vec4 specular_color;\n"
+        "uniform sampler2D uvTexture;\n"
+        "in fData{\n"
+        "	vec3 to_eye;\n"
+        "	vec3 to_light;\n"
+        "	vec3 normal;\n"
+        "	vec2 tex_coord;\n"
+        "} frag;\n"
+        "out vec4 outColor;\n"
+        "void main() {\n"
+        "	vec4 Kd = vec4(texture( uvTexture, frag.tex_coord ).xyz,1);\n"
+        "	vec4 Ks = specular_color;\n"
+        "	vec4 Ka = Kd * 0.2;\n"
+        "	vec3 to_light = normalize(frag.to_light);\n"
+        "	vec3 to_eye = normalize(frag.to_eye);\n"
+        "	vec3 normal = normalize(frag.normal);\n"
+        "	vec3 refl = reflect(-to_light, normal);\n"
+        "	if (dot(to_light, normal) <= 0)\n"
+        "		discard;\n"
+        "	float diffuse_factor = max(0.0, dot(to_light, normal));\n"
+        "	float specular_factor = pow(max(dot(to_eye, refl), 0.0), 10.0);\n"
+        "	outColor = Ka + Kd*diffuse_factor + Ks*specular_factor;\n"
+        "}\n"
+        ;
+
+    mLabeledMesh_F.init("Shader_F_Lb",
+        g_lb_vs,
+        g_lb_fs,
+        g_lb_geo);
 
     cout << "done. (took " << timeString(timer.value()) << ")" << endl;
 
@@ -145,6 +353,9 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
     }
     mExampleImages.insert(mExampleImages.begin(),
                           std::make_pair(nvgImageIcon(ctx, loadmesh), ""));
+
+    mArrowTexture.load("arrow.png");
+    mUVTexture.load("uvTexture.png");
 
     /* Initialize user interface */
     Window *window = new Window(this, "Instant Meshes");
@@ -292,6 +503,18 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
 
     mLayers[OutputMesh] = new CheckBox(advancedPopup, "Output mesh", layerCB);
     mLayers[OutputMeshWireframe] = new CheckBox(advancedPopup, "Output mesh wireframe", layerCB);
+
+    mLayers[ExtractedFaceLabels] = new CheckBox(advancedPopup, "Extracted Face IDs", layerCB);
+    mLayers[ExtractedVertexLabels] = new CheckBox(advancedPopup, "Extracted Vertex IDs", layerCB);
+
+    mLayers[LabeledConstraintsMeshEdges] = new CheckBox(advancedPopup, "Labeled mesh - Constraints (Stitch Meshing)", layerCB);
+    mLayers[LabeledMesh] = new CheckBox(advancedPopup, "Labeled mesh (Stitch Meshing)", layerCB);
+    mLayers[AlignedConstraintsMesh] = new CheckBox(advancedPopup, "Aligned mesh - Constraints (Stitch Meshing)", layerCB);
+    mLayers[AlignedMesh] = new CheckBox(advancedPopup, "Aligned mesh (Stitch Meshing)", layerCB);
+    mLayers[AlignedMeshEdges] = new CheckBox(advancedPopup, "Aligned mesh edges (Stitch Meshing)", layerCB);
+    mLayers[StitchMesh] = new CheckBox(advancedPopup, "Stitch mesh (Stitch Meshing)", layerCB);
+    mLayers[StitchMeshEdges] = new CheckBox(advancedPopup, "Stitch mesh edges (Stitch Meshing)", layerCB);
+
     for (int i=0; i<LayerCount; ++i)
         mLayers[i]->setId("layer_" + std::to_string(i));
 
@@ -460,6 +683,12 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
             mLayers[FlowLines]->setChecked(!pointcloud);
             mLayers[OutputMesh]->setChecked(false);
             mLayers[OutputMeshWireframe]->setChecked(false);
+            mLayers[LabeledMesh]->setChecked(false);
+            mLayers[AlignedConstraintsMesh]->setChecked(false);
+            mLayers[AlignedMesh]->setChecked(false);
+            mLayers[AlignedMeshEdges]->setChecked(false);
+            mLayers[StitchMesh]->setChecked(false);
+            mLayers[StitchMeshEdges]->setChecked(false);
             mFlowLineSlider->setEnabled(!pointcloud);
         } else {
             mOptimizer.stop();
@@ -623,6 +852,183 @@ Viewer::Viewer(bool fullscreen, bool deterministic)
         extractConsensusGraph();
     });
 
+
+
+    mStitchBtn = new PopupButton(window, "Stitch Meshing", ENTYPO_ICON_COG);
+    mStitchBtn->setBackgroundColor(Color(0, 255, 0, 25));
+    mStitchBtn->setId("stitchBtn");
+    Popup* stitchPopup = mStitchBtn->popup();
+    stitchPopup->setAnchorHeight(50);
+    stitchPopup->setLayout(new GroupLayout());
+
+    mLabelPicker = new ToolButton(stitchPopup, ENTYPO_ICON_BRUSH);
+    mLabelPicker->setId("labelPicker");
+    mLabelPicker->setTooltip("Label Picker: specify course/wale edge label");
+    mLabelPicker->setEnabled(false);
+
+    mAlignPicker = new ToolButton(stitchPopup, ENTYPO_ICON_BRUSH);
+    mAlignPicker->setId("alignPicker");
+    mAlignPicker->setTooltip("Align Picker: specify wale direction of row");
+    mAlignPicker->setEnabled(false);
+
+    mStitchMeshingLabelPrepBtn = new Button(stitchPopup, "Prep Label", ENTYPO_ICON_COG);
+    mStitchMeshingLabelPrepBtn->setBackgroundColor(Color(0, 255, 0, 25));
+    mStitchMeshingLabelPrepBtn->setId("StichMeshingLabelPrepBtn");
+    mStitchMeshingLabelPrepBtn->setCallback([&]() {
+        try {
+            mRes.prepLabelMesh();
+            mLabelPicker->setEnabled(true);
+            mRes.initLabeledConstraintsMeshRend();
+            mLabeledConstraintsMeshLines = mRes.mE_PrepLbMesh_rend.cols();
+
+            mLabeledConstraintsMesh_E.bind();
+            mLabeledConstraintsMesh_E.uploadAttrib("position", MatrixXf(mRes.mE_PrepLbMesh_rend.block(0, 0, 3, mRes.mE_PrepLbMesh_rend.cols())));
+            mLabeledConstraintsMesh_E.uploadAttrib("color", MatrixXf(mRes.mE_PrepLbMesh_rend.block(3, 0, 3, mRes.mE_PrepLbMesh_rend.cols())));
+
+            mLayers[OutputMeshWireframe]->setChecked(false);
+            mLayers[LabeledConstraintsMeshEdges]->setChecked(true);
+            repaint();
+        }
+        catch (const std::exception& e) {
+            new MessageDialog(this, MessageDialog::Type::Warning, "Error", e.what());
+        }
+        });
+
+    mStitchMeshingLabelBtn = new Button(stitchPopup, "Label", ENTYPO_ICON_COG);
+    mStitchMeshingLabelBtn->setBackgroundColor(Color(0, 255, 0, 25));
+    mStitchMeshingLabelBtn->setId("StitchMeshingLabelBtn");
+    mStitchMeshingLabelBtn->setCallback([&]() {
+        try {
+            //Labeling
+            mRes.labelMesh(true);
+            mRes.convertLabelMesh2Rend();
+
+
+            ////////////////////////////////////////////////////////////////////////////
+            // write to render buffer
+            mLabeledMeshFaces = mRes.mF_LbMesh_rend.cols();
+
+            mLabeledMesh_F.bind();
+            std::cout << "\nGonna upload position attribute\n";
+            mLabeledMesh_F.uploadAttrib("position", mRes.mV_LbMesh_rend);
+            std::cout << "\nGonna upload tex_coord attribute\n";
+            mLabeledMesh_F.uploadAttrib("tex_coord", mRes.mT_LbMesh_rend);
+            mLabeledMesh_F.uploadIndices(mRes.mF_LbMesh_rend);
+
+
+
+            mLayers[LabeledMesh]->setEnabled(true);
+            mLayers[LabeledMesh]->setChecked(true);
+            mLayers[LabeledConstraintsMeshEdges]->setChecked(false);
+            mLayers[AlignedConstraintsMesh]->setChecked(false);
+            mLayers[AlignedMesh]->setChecked(false);
+            mLayers[AlignedMeshEdges]->setChecked(false);
+            mLayers[StitchMeshEdges]->setChecked(false);
+            mLayers[StitchMesh]->setChecked(false);
+            mLayers[OutputMesh]->setChecked(false);
+            mLayers[OutputMeshWireframe]->setChecked(false);
+            repaint();
+        }
+        catch (const std::exception& e) {
+            new MessageDialog(this, MessageDialog::Type::Warning, "Error", e.what());
+        }
+        });
+
+    mStitchMeshingAlignPrepBtn = new Button(stitchPopup, "Prep Align", ENTYPO_ICON_COG);
+    mStitchMeshingAlignPrepBtn->setBackgroundColor(Color(0, 255, 0, 25));
+    mStitchMeshingAlignPrepBtn->setId("StitchMeshingMakePolyBtn");
+    mStitchMeshingAlignPrepBtn->setCallback([&]() {
+        try {
+            mRes.prepAlignMesh();
+            mAlignPicker->setEnabled(true);
+            mLayers[AlignedConstraintsMesh]->setChecked(true);
+        }
+        catch (const std::exception& e) {
+            new MessageDialog(this, MessageDialog::Type::Warning, "Error", e.what());
+        }
+        });
+
+    mStitchMeshingAlignBtn = new Button(stitchPopup, "Align", ENTYPO_ICON_COG);
+    mStitchMeshingAlignBtn->setBackgroundColor(Color(0, 255, 0, 25));
+    mStitchMeshingAlignBtn->setId("StitchMeshingAlignBtn");
+    mStitchMeshingAlignBtn->setCallback([&]() {
+        try {
+            //Aligning
+            mRes.alignMesh();
+            mRes.convertAlignMesh2Rend();
+
+
+            ////////////////////////////////////////////////////////////////////////////
+            // write to render buffer
+            mAlignedMeshFaces = mRes.mF_AlMesh_rend.cols();
+            mAlignedMeshLines = mRes.mE_AlMesh_rend.cols();
+
+            mAlignedMesh_F.bind();
+            mAlignedMesh_F.uploadAttrib("position", mRes.mV_AlMesh_rend);
+            mAlignedMesh_F.uploadAttrib("tex_coord", mRes.mT_AlMesh_rend);
+            mAlignedMesh_F.uploadAttrib("color", mRes.mC_AlMesh_rend);
+            mAlignedMesh_F.uploadIndices(mRes.mF_AlMesh_rend);
+
+            mAlignedMesh_E.bind();
+            mAlignedMesh_E.uploadAttrib("position", MatrixXf(mRes.mE_AlMesh_rend.block(0, 0, 3, mRes.mE_AlMesh_rend.cols())));
+            mAlignedMesh_E.uploadAttrib("color", MatrixXf(mRes.mE_AlMesh_rend.block(3, 0, 3, mRes.mE_AlMesh_rend.cols())));
+
+            mLayers[AlignedMesh]->setEnabled(true);
+            mLayers[AlignedMeshEdges]->setEnabled(true);
+            mLayers[LabeledMesh]->setChecked(false);
+            mLayers[AlignedConstraintsMesh]->setChecked(false);
+            mLayers[AlignedMesh]->setChecked(true);
+            mLayers[AlignedMeshEdges]->setChecked(true);
+            mLayers[StitchMeshEdges]->setChecked(false);
+            mLayers[StitchMesh]->setChecked(false);
+            repaint();
+        }
+        catch (const std::exception& e) {
+            new MessageDialog(this, MessageDialog::Type::Warning, "Error", e.what());
+        }
+        });
+
+    mStitchMeshingStitchMeshBtn = new Button(stitchPopup, "Stitch Mesh", ENTYPO_ICON_COG);
+    mStitchMeshingStitchMeshBtn->setBackgroundColor(Color(0, 255, 0, 25));
+    mStitchMeshingStitchMeshBtn->setId("StitchMeshingStitchMeshBtn");
+    mStitchMeshingStitchMeshBtn->setCallback([&]() {
+        try {
+            //Stitch Meshing
+            mRes.stitchMeshing();
+            mRes.convertStitchMesh2Rend();
+
+
+            ////////////////////////////////////////////////////////////////////////////
+            // write to render buffer
+            mStitchMeshFaces = mRes.mF_StMesh_rend.cols();
+            mStitchMeshLines = mRes.mE_StMesh_rend.cols();
+
+            mStitchMeshing_F.bind();
+            mStitchMeshing_F.uploadAttrib("position", mRes.mV_StMesh_rend);
+            mStitchMeshing_F.uploadAttrib("tex_coord", mRes.mT_StMesh_rend);
+            mStitchMeshing_F.uploadAttrib("color", mRes.mC_StMesh_rend);
+            mStitchMeshing_F.uploadIndices(mRes.mF_StMesh_rend);
+
+            auto const& R4 = mRes.mE_StMesh_rend;
+            mStitchMeshing_E.bind();
+            mStitchMeshing_E.uploadAttrib("position", MatrixXf(R4.block(0, 0, 3, R4.cols())));
+            mStitchMeshing_E.uploadAttrib("color", MatrixXf(R4.block(3, 0, 3, R4.cols())));
+
+
+            mLayers[StitchMesh]->setEnabled(true);
+            mLayers[StitchMeshEdges]->setEnabled(true);
+            mLayers[LabeledMesh]->setChecked(false);
+            mLayers[AlignedMesh]->setChecked(false);
+            mLayers[AlignedMeshEdges]->setChecked(false);
+            mLayers[StitchMeshEdges]->setChecked(true);
+            mLayers[StitchMesh]->setChecked(true);
+            repaint();
+        }
+        catch (const std::exception& e) {
+            new MessageDialog(this, MessageDialog::Type::Warning, "Error", e.what());
+        }
+        });
+
 #ifdef VISUALIZE_ERROR
     mGraph = new Graph(window, "Energy");
 #endif
@@ -670,6 +1076,13 @@ Viewer::~Viewer() {
     mStrokeShader.free();
     mOutputMeshWireframeShader.free();
     mOutputMeshShader.free();
+    mLabeledConstraintsMesh_E.free();
+    mLabeledMesh_F.free();
+    mAlignedConstraintsMesh_F.free();
+    mAlignedMesh_F.free();
+    mAlignedMesh_E.free();
+    mStitchMeshing_F.free();
+    mStitchMeshing_E.free();
     mFBO.free();
 }
 
@@ -1488,10 +1901,9 @@ void Viewer::extractMesh() {
     Vector3f red = Vector3f::UnitX();
 
     int smooth_iterations = (int) (mSmoothSlider->value() * 10);
-    extract_faces(adj_extracted, mV_extracted, mN_extracted, mNf_extracted,
+    extract_faces(mRes,adj_extracted, mV_extracted, mN_extracted, mNf_extracted,
                   mF_extracted, posy, mRes.scale(), creaseOut, true,
                   mPureQuadBox->checked(), mBVH, smooth_iterations, mSplitNgonsBox->checked());
-
     cout << "Extraction is done. (total time: " << timeString(timer.value()) << ")" << endl;
 
     int fmult = posy == 3 ? 1 : 2;
@@ -1709,6 +2121,13 @@ void Viewer::resetState() {
     mOutputMeshLines = 0;
     mFlowLineFaces = 0;
     mStrokeFaces = 0;
+    mLabeledConstraintsMeshLines = 0;
+    mLabeledMeshFaces = 0;
+    mAlignedConstraintsMeshFaces = 0;
+    mAlignedMeshFaces = 0;
+    mAlignedMeshLines = 0;
+    mStitchMeshFaces = 0;
+    mStitchMeshLines = 0;
     mContinueWithPositions = false;
     if (mStrokes.size() > 0)
         mRes.clearConstraints();
@@ -1747,8 +2166,24 @@ void Viewer::resetState() {
     mLayers[OutputMeshWireframe]->setEnabled(hasData);
     mLayers[OutputMesh]->setChecked(false);
     mLayers[OutputMesh]->setEnabled(hasData);
+    mLayers[ExtractedVertexLabels]->setChecked(false);
+    mLayers[ExtractedVertexLabels]->setEnabled(hasData);
+    mLayers[ExtractedFaceLabels]->setChecked(false);
+    mLayers[ExtractedFaceLabels]->setEnabled(hasData);
     mLayers[BrushStrokes]->setChecked(false);
     mLayers[BrushStrokes]->setEnabled(hasData);
+    mLayers[LabeledMesh]->setChecked(false);
+    mLayers[LabeledMesh]->setEnabled(hasData);
+    mLayers[AlignedConstraintsMesh]->setChecked(false);
+    mLayers[AlignedConstraintsMesh]->setEnabled(hasData);
+    mLayers[AlignedMesh]->setChecked(false);
+    mLayers[AlignedMesh]->setEnabled(hasData);
+    mLayers[AlignedMeshEdges]->setChecked(false);
+    mLayers[AlignedMeshEdges]->setEnabled(hasData);
+    mLayers[StitchMesh]->setChecked(false);
+    mLayers[StitchMesh]->setEnabled(hasData);
+    mLayers[StitchMeshEdges]->setChecked(false);
+    mLayers[StitchMeshEdges]->setEnabled(hasData);
     mVisualizeBox->setSelectedIndex(0);
     mScaleSlider->setEnabled(hasData);
     mScaleBox->setEnabled(hasData);
@@ -2590,6 +3025,37 @@ void Viewer::drawContents() {
         nvgEndFrame(mNVGContext);
     };
 
+    drawFunctor[ExtractedFaceLabels] = [&](uint32_t offset, uint32_t count) {
+        nvgBeginFrame(mNVGContext, mSize[0], mSize[1], mPixelRatio);
+        nvgFontSize(mNVGContext, 14.0f);
+        nvgFontFace(mNVGContext, "sans-bold"); 
+        nvgTextAlign(mNVGContext, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+        const MatrixXf& V = mRes.mV_tag, & N = mRes.mN_tag;
+        const std::vector<std::vector<uint32_t>>& F = mRes.F_tag;
+        nvgFillColor(mNVGContext, Color(200, 200, 255, 200));
+
+        for (uint32_t i = offset; i < offset + count; ++i) {
+            Vector4f pos;
+            Vector3f n = Vector3f::Zero(), temp_pos = Vector3f::Zero();
+            for (uint32_t j = 0; j < F[i].size(); ++j)
+            {
+                temp_pos = temp_pos + V.col(F[i][j]);
+                n = n + N.col(F[i][j]);
+            }
+            temp_pos = temp_pos / F[i].size();
+            pos << temp_pos.cast<float>(), 1.0f;
+            n.normalize();
+
+            Vector3f ray_origin = pos.head<3>() + n * pos.cwiseAbs().maxCoeff() * 1e-4f;
+            Eigen::Vector3f coord = project(Vector3f((model * pos).head<3>()), view, proj, mSize);
+            if (coord.x() < -50 || coord.x() > mSize[0] + 50 || coord.y() < -50 || coord.y() > mSize[1] + 50)
+                continue;
+            if (!mBVH->rayIntersect(Ray(ray_origin, civ.head<3>() - ray_origin, 0.0f, 1.1f)))
+                nvgText(mNVGContext, coord.x(), mSize[1] - coord.y(), std::to_string(i).c_str(), nullptr);
+        }
+        nvgEndFrame(mNVGContext);
+    };
+
     drawFunctor[VertexLabels] = [&](uint32_t offset, uint32_t count) {
         nvgBeginFrame(mNVGContext, mSize[0], mSize[1], mPixelRatio);
         nvgFontSize(mNVGContext, 14.0f);
@@ -2612,6 +3078,158 @@ void Viewer::drawContents() {
         nvgEndFrame(mNVGContext);
     };
 
+
+    drawFunctor[ExtractedVertexLabels] = [&](uint32_t offset, uint32_t count) {
+        nvgBeginFrame(mNVGContext, mSize[0], mSize[1], mPixelRatio);
+        nvgFontSize(mNVGContext, 14.0f);
+        nvgFontFace(mNVGContext, "sans-bold");
+        nvgTextAlign(mNVGContext, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+        const MatrixXf& V = mV_extracted, & N = mRes.mN_tag;
+        nvgFillColor(mNVGContext, Color(200, 255, 200, 200));
+        for (uint32_t i = offset; i < offset + count; ++i) {
+            Vector4f pos;
+            pos << V.col(i).cast<float>(), 1.0f;
+            Vector3f n = N.col(i);
+
+            Vector3f ray_origin = pos.head<3>() + n * pos.cwiseAbs().maxCoeff() * 1e-4f;
+            Eigen::Vector3f coord = project(Vector3f((model * pos).head<3>()), view, proj, mSize);
+            if (coord.x() < -50 || coord.x() > mSize[0] + 50 || coord.y() < -50 || coord.y() > mSize[1] + 50)
+                continue;
+            if (!mBVH->rayIntersect(Ray(ray_origin, civ.head<3>() - ray_origin, 0.0f, 1.1f)))
+                nvgText(mNVGContext, coord.x(), mSize[1] - coord.y(), std::to_string(i).c_str(), nullptr);
+        }
+        nvgEndFrame(mNVGContext);
+    };
+
+    drawFunctor[LabeledConstraintsMeshEdges] = [&](uint32_t offset, uint32_t count) {
+        //Edges
+        if (mFBO.samples() == 1) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        }
+        mLabeledConstraintsMesh_E.bind();
+        mLabeledConstraintsMesh_E.setUniform("mvp", Eigen::Matrix4f(proj * view * model));
+        mLabeledConstraintsMesh_E.drawArray(GL_LINES, offset, count);
+        if (mFBO.samples() == 1)
+            glDisable(GL_BLEND);
+    };
+
+    drawFunctor[LabeledMesh] = [&](uint32_t offset, uint32_t count) {
+
+        mLabeledMesh_F.bind();
+
+        glEnable(GL_TEXTURE_2D);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, mUVTexture.texture());
+        mLabeledMesh_F.setUniform("uvTexture", 0);
+
+        mLabeledMesh_F.setUniform("light_position", Vector3f(0.0f, 0.3f, 5.0f));
+        mLabeledMesh_F.setUniform("model", model);
+        mLabeledMesh_F.setUniform("view", view);
+        mLabeledMesh_F.setUniform("proj", proj);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1.0, 1.0);
+        mLabeledMesh_F.drawIndexed(GL_TRIANGLES, 0, mRes.mF_LbMesh_rend.cols());
+
+        glDisable(GL_TEXTURE_2D);
+
+        glDisable(GL_POLYGON_OFFSET_FILL);
+    };
+
+    drawFunctor[AlignedConstraintsMesh] = [&](uint32_t offset, uint32_t count) {
+
+        mAlignedConstraintsMesh_F.bind();
+
+        glEnable(GL_TEXTURE_2D);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, mArrowTexture.texture());
+        mAlignedConstraintsMesh_F.setUniform("arrowTexture", 0);
+
+        mAlignedConstraintsMesh_F.setUniform("light_position", Vector3f(0.0f, 0.3f, 5.0f));
+        mAlignedConstraintsMesh_F.setUniform("model", model);
+        mAlignedConstraintsMesh_F.setUniform("view", view);
+        mAlignedConstraintsMesh_F.setUniform("proj", proj);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1.0, 1.0);
+        mAlignedConstraintsMesh_F.drawIndexed(GL_TRIANGLES, 0, mRes.mF_PrepAlMesh_rend.cols());
+
+        glDisable(GL_TEXTURE_2D);
+
+        glDisable(GL_POLYGON_OFFSET_FILL);
+    };
+
+    drawFunctor[AlignedMesh] = [&](uint32_t offset, uint32_t count) {
+
+        mAlignedMesh_F.bind();
+
+        glEnable(GL_TEXTURE_2D);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, mArrowTexture.texture());
+        mAlignedMesh_F.setUniform("arrowTexture", 0);
+
+        mAlignedMesh_F.setUniform("light_position", Vector3f(0.0f, 0.3f, 5.0f));
+        mAlignedMesh_F.setUniform("model", model);
+        mAlignedMesh_F.setUniform("view", view);
+        mAlignedMesh_F.setUniform("proj", proj);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1.0, 1.0);
+        mAlignedMesh_F.drawIndexed(GL_TRIANGLES, 0, mRes.mF_AlMesh_rend.cols());
+
+        glDisable(GL_TEXTURE_2D);
+
+        glDisable(GL_POLYGON_OFFSET_FILL);
+    };
+
+    drawFunctor[AlignedMeshEdges] = [&](uint32_t offset, uint32_t count) {
+        //Edges
+        if (mFBO.samples() == 1) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        }
+        mAlignedMesh_E.bind();
+        mAlignedMesh_E.setUniform("mvp", Eigen::Matrix4f(proj * view * model));
+        mAlignedMesh_E.drawArray(GL_LINES, offset, count);
+        if (mFBO.samples() == 1)
+            glDisable(GL_BLEND);
+    };
+
+    drawFunctor[StitchMesh] = [&](uint32_t offset, uint32_t count) {
+
+        //Faces
+        mStitchMeshing_F.bind();
+
+        glEnable(GL_TEXTURE_2D);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, mArrowTexture.texture());
+        mStitchMeshing_F.setUniform("arrowTexture", 0);
+
+        mStitchMeshing_F.setUniform("light_position", Vector3f(0.0f, 0.3f, 5.0f));
+        mStitchMeshing_F.setUniform("model", model);
+        mStitchMeshing_F.setUniform("view", view);
+        mStitchMeshing_F.setUniform("proj", proj);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1.0, 1.0);
+        mStitchMeshing_F.drawIndexed(GL_TRIANGLES, 0, mRes.mF_StMesh_rend.cols());
+
+        glDisable(GL_TEXTURE_2D);
+
+        glDisable(GL_POLYGON_OFFSET_FILL);
+    };
+
+    drawFunctor[StitchMeshEdges] = [&](uint32_t offset, uint32_t count) {
+        //Edges
+        if (mFBO.samples() == 1) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        }
+        mStitchMeshing_E.bind();
+        mStitchMeshing_E.setUniform("mvp", Eigen::Matrix4f(proj * view * model));
+        mStitchMeshing_E.drawArray(GL_LINES, offset, count);
+        if (mFBO.samples() == 1)
+            glDisable(GL_BLEND);
+
+    };
+
     uint32_t drawAmount[LayerCount], blockSize[LayerCount];
     bool checked[LayerCount];
     drawAmount[InputMesh] = !pointcloud ? mRes.F().cols() : mRes.V().cols();
@@ -2625,6 +3243,15 @@ void Viewer::drawContents() {
     drawAmount[OutputMeshWireframe] = mOutputMeshLines;
     drawAmount[FaceLabels] = mRes.F().cols();
     drawAmount[VertexLabels] = mRes.size();
+    drawAmount[ExtractedFaceLabels] = mRes.F_tag.size();
+    drawAmount[ExtractedVertexLabels] = mV_extracted.cols();
+    drawAmount[LabeledConstraintsMeshEdges] = mLabeledConstraintsMeshLines;
+    drawAmount[LabeledMesh] = mLabeledMeshFaces;
+    drawAmount[AlignedConstraintsMesh] = mAlignedConstraintsMeshFaces;
+    drawAmount[AlignedMesh] = mAlignedMeshFaces;
+    drawAmount[AlignedMeshEdges] = mAlignedMeshLines;
+    drawAmount[StitchMesh] = mStitchMeshFaces;
+    drawAmount[StitchMeshEdges] = mStitchMeshLines;
 
     for (int i=0; i<LayerCount; ++i)
         checked[i] = mLayers[i]->checked();
@@ -2641,6 +3268,8 @@ void Viewer::drawContents() {
     blockSize[InputMesh] = blockSize[OutputMesh] = blockSize[FlowLines] = 1000000;
     blockSize[FaceLabels] = 20000;
     blockSize[VertexLabels] = 20000;
+    blockSize[ExtractedFaceLabels] = 20000;
+    blockSize[ExtractedVertexLabels] = 20000;
 
     const int drawOrder[] = {
         InputMesh,
@@ -2651,9 +3280,18 @@ void Viewer::drawContents() {
         PositionFieldSingularities,
         OutputMesh,
         OutputMeshWireframe,
+        LabeledConstraintsMeshEdges,
+        LabeledMesh,
+        AlignedConstraintsMesh,
+        AlignedMesh,
+        AlignedMeshEdges,
+        StitchMesh,
+        StitchMeshEdges,
         FlowLines,
         FaceLabels,
-        VertexLabels
+        VertexLabels,
+        ExtractedFaceLabels,
+        ExtractedVertexLabels
     };
 
     if (mFBO.samples() == 1) {
@@ -2834,6 +3472,10 @@ void Viewer::drawOverlay() {
         message = "Selected tool: Position Singularity Attractor";
     else if (mPositionScareBrush->pushed())
         message = "Selected tool: Position Singularity Scaring Brush";
+    else if (mLabelPicker->pushed())
+        message = "Selected tool: Label Picker";
+    else if (mAlignPicker->pushed())
+        message = "Selected tool: Align Picker";
     else
         return;
 
@@ -2906,7 +3548,8 @@ bool Viewer::scrollEvent(const Vector2i &p, const Vector2f &rel) {
 bool Viewer::toolActive() const {
     return
         mOrientationComb->pushed() || mOrientationAttractor->pushed() || mOrientationScareBrush->pushed() ||
-        mEdgeBrush->pushed() || mPositionAttractor->pushed() || mPositionScareBrush->pushed();
+        mEdgeBrush->pushed() || mPositionAttractor->pushed() || mPositionScareBrush->pushed() ||
+        mLabelPicker->pushed() || mAlignPicker->pushed();
 }
 
 bool Viewer::mouseMotionEvent(const Vector2i &p, const Vector2i &rel,
@@ -2935,6 +3578,179 @@ bool Viewer::mouseMotionEvent(const Vector2i &p, const Vector2i &rel,
 bool Viewer::mouseButtonEvent(const Vector2i &p, int button, bool down, int modifiers) {
     if (!Screen::mouseButtonEvent(p, button, down, modifiers)) {
         if (toolActive()) {
+            if (mLabelPicker->pushed() && down) {
+                /*
+                ===========================================================
+                ====================== CS591 related ======================
+                ===========================================================
+                This bit of code finds where the user clicked and finds the
+                closest half edge. It then adds/changes the constraint
+                depending on the button pressed by the user.
+                */
+                //Get the 3d point we clicked
+                Eigen::Matrix4f model, view, proj;
+                computeCameraMatrices(model, view, proj);
+
+                Eigen::Vector3f pos1 = unproject(Eigen::Vector3f(p.x(), mSize.y() - p.y(), 0.0f), view * model, proj, mSize);
+                Eigen::Vector3f pos2 = unproject(Eigen::Vector3f(p.x(), mSize.y() - p.y(), 1.0f), view * model, proj, mSize);
+
+                Ray ray(pos1, (pos2 - pos1).normalized());
+                Vector2f uv;
+                uint32_t f;
+                Float t;
+
+                if (!mBVH->rayIntersect(ray, f, t, &uv)) {
+                    return false;
+                }
+
+                Vector3f pt = ray(t);
+                cyPoint3f pt_cy(pt.x(), pt.y(), pt.z());
+                int halfedge_index = -1;
+                float best_dist = 1e4;
+                for (auto i = 0; i < mRes.mPoly->numHalfEdges(); ++i)
+                {
+                    float dist = (mRes.mPoly->halfedge(i)->midpoint() - pt_cy).LengthSquared();
+                    if (dist < best_dist)
+                    {
+                        best_dist = dist;
+                        halfedge_index = i;
+                    }
+                }
+                if (halfedge_index < 0)
+                {
+                    return false;
+                }
+
+                auto& labels = mRes.mDual->user_defined_labels;
+                if (labels.find(halfedge_index) != labels.end())
+                {
+                    if (button == GLFW_MOUSE_BUTTON_1)
+                    {
+                        labels[halfedge_index] = 0.f;
+                    }
+                    else
+                    {
+                        labels[halfedge_index] = 1.0f;
+                    }
+                }
+                else 
+                {
+
+                    if (button == GLFW_MOUSE_BUTTON_1)
+                    {
+                        labels.emplace(halfedge_index, 0.f);
+                    }
+                    else
+                    {
+                        labels.emplace(halfedge_index, 1.f);
+                    }
+                }
+                mRes.updateLabeledConstraintsMeshRend(halfedge_index);
+                mLabeledConstraintsMeshLines = mRes.mE_PrepLbMesh_rend.cols();
+                mLabeledConstraintsMesh_E.bind();
+                mLabeledConstraintsMesh_E.uploadAttrib("position", MatrixXf(mRes.mE_PrepLbMesh_rend.block(0, 0, 3, mRes.mE_PrepLbMesh_rend.cols())));
+                mLabeledConstraintsMesh_E.uploadAttrib("color", MatrixXf(mRes.mE_PrepLbMesh_rend.block(3, 0, 3, mRes.mE_PrepLbMesh_rend.cols())));
+                std::cout << "\nChanged label of a half edge: " << halfedge_index << " ; " << (labels[halfedge_index] == 0 ? "wale (green)" : "course (red)") << "\n";
+                repaint();
+                return true;
+            }
+            if (mAlignPicker->pushed() && down) {
+                /*
+                ===========================================================
+                ====================== CS591 related ======================
+                ===========================================================
+                This bit of code finds where the user clicked and finds
+                which row it corresponds to. It then adds/changes the
+                constraint depending on the button pressed by the user.
+                */
+                //Get the 3d point we clicked
+                Eigen::Matrix4f model, view, proj;
+                computeCameraMatrices(model, view, proj);
+
+                Eigen::Vector3f pos1 = unproject(Eigen::Vector3f(p.x(), mSize.y() - p.y(), 0.0f), view * model, proj, mSize);
+                Eigen::Vector3f pos2 = unproject(Eigen::Vector3f(p.x(), mSize.y() - p.y(), 1.0f), view * model, proj, mSize);
+
+                Ray ray(pos1, (pos2 - pos1).normalized());
+                Vector2f uv;
+                uint32_t f;
+                Float t;
+
+                if (!mBVH->rayIntersect(ray, f, t, &uv)) {
+                    return false;
+                }
+
+                Vector3f pt = ray(t);
+                cyPoint3f pt_cy(pt.x(), pt.y(), pt.z());
+                int face_idx = -1;
+                float best_dist = 1e4;
+                for (auto i = 0; i < mRes.mPoly->numFaces(); ++i)
+                {
+                    float dist = (mRes.mPoly->face(i)->centroid() - pt_cy).LengthSquared();
+                    if (dist < best_dist)
+                    {
+                        best_dist = dist;
+                        face_idx = i;
+                    }
+                }
+                if (face_idx < 0)
+                {
+                    return false;
+                }
+                int group_idx = -1;
+                auto& grps = mRes.mDual->_groupFaceIdx;
+                for (int i = 0; i < grps.size(); ++i)
+                {
+                    if (std::find(grps[i].begin(), grps[i].end(), face_idx) != grps[i].end())
+                    {
+                        group_idx = i;
+                        break;
+                    }
+                }
+
+                if (group_idx < 0)
+                {
+                    return false;
+                }
+
+                auto& labels = mRes.mDual->user_defined_alignments;
+                if (labels.find(group_idx) != labels.end())
+                {
+                    if (button == GLFW_MOUSE_BUTTON_1)
+                    {
+                        labels[group_idx] = 0.f;
+                    }
+                    else
+                    {
+                        labels[group_idx] = 1.0f;
+                    }
+                }
+                else 
+                {
+
+                    if (button == GLFW_MOUSE_BUTTON_1)
+                    {
+                        labels.emplace(group_idx, 0.f);
+                    }
+                    else
+                    {
+                        labels.emplace(group_idx, 1.f);
+                    }
+                }
+                std::cout << "\nChanged alignment of a group of faces: " << group_idx << " ; " << labels[group_idx] << "\n";
+                //Update the rendering
+                mRes.convertAlignConstraintsMesh2Rend();
+                // write to render buffer
+                mAlignedConstraintsMeshFaces = mRes.mF_PrepAlMesh_rend.cols();
+
+                mAlignedConstraintsMesh_F.bind();
+                mAlignedConstraintsMesh_F.uploadAttrib("position", mRes.mV_PrepAlMesh_rend);
+                mAlignedConstraintsMesh_F.uploadAttrib("tex_coord", mRes.mT_PrepAlMesh_rend);
+                mAlignedConstraintsMesh_F.uploadAttrib("color", mRes.mC_PrepAlMesh_rend);
+                mAlignedConstraintsMesh_F.uploadIndices(mRes.mF_PrepAlMesh_rend);
+                repaint();
+                return true;
+            }
+
             bool drag = down && button == GLFW_MOUSE_BUTTON_1;
             if (drag == mDrag)
                 return false;
